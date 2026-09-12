@@ -1569,3 +1569,350 @@ body {
   }
 }
 
+/* ==========================================================================
+   Pomodoro Duration Bar & Alarm UI Styles
+   ========================================================================== */
+
+/* Quick Pomodoro Duration Bar (Timer Card) */
+.pomodoro-quick-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  padding: 0.6rem 0.85rem;
+  background-color: var(--bg-main);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.pomodoro-quick-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.pomodoro-presets {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.pomo-preset-btn {
+  padding: 0.25rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pomo-preset-btn:hover {
+  border-color: var(--primary);
+  color: var(--text-main);
+}
+
+.pomo-preset-btn.active {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+  box-shadow: 0 2px 8px var(--primary-glow);
+}
+
+.pomo-custom-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-left: auto;
+}
+
+.pomo-custom-input {
+  width: 58px;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.8rem;
+  text-align: center;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.pomo-custom-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.pomo-custom-suffix {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Timer Alarm Ringing State */
+.timer-circle.completed {
+  border-color: #10b981;
+  box-shadow: 0 0 35px rgba(16, 185, 129, 0.4);
+  animation: pulseCompleted 1.5s infinite ease-in-out;
+}
+
+@keyframes pulseCompleted {
+  0%, 100% {
+    transform: scale(1);
+    border-color: #10b981;
+    box-shadow: 0 0 25px rgba(16, 185, 129, 0.3);
+  }
+  50% {
+    transform: scale(1.02);
+    border-color: #34d399;
+    box-shadow: 0 0 40px rgba(16, 185, 129, 0.6);
+  }
+}
+
+.btn-alarm-ringing {
+  background-color: #f59e0b !important;
+  color: #ffffff !important;
+  border: none !important;
+  animation: bounceAlarmBtn 1s infinite alternate ease-in-out;
+}
+
+@keyframes bounceAlarmBtn {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+  }
+  100% {
+    transform: scale(1.05);
+    box-shadow: 0 0 25px rgba(245, 158, 11, 0.8);
+  }
+}
+
+/* Settings Tab: Pomodoro & Sound Card */
+.pomodoro-settings-form {
+  margin-top: 0.5rem;
+}
+
+.pomodoro-setting-section {
+  background-color: var(--bg-main);
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+
+.pomodoro-time-setting-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin-top: 0.5rem;
+}
+
+.btn-pomo-setting-preset {
+  padding: 0.25rem 0.65rem;
+  font-size: 0.78rem;
+  border-radius: 20px;
+}
+
+.btn-pomo-setting-preset.active {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+  box-shadow: 0 2px 8px var(--primary-glow);
+}
+
+/* Alarm Sound Box */
+.alarm-sound-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.sound-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.sound-track-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sound-music-icon {
+  font-size: 1.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sound-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-main);
+}
+
+.sound-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+.sound-options-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.4rem 0.25rem;
+}
+
+.toggle-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-control input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.toggle-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.volume-control-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background-color: var(--bg-card);
+  padding: 0.35rem 0.85rem;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+}
+
+.volume-icon {
+  font-size: 0.9rem;
+}
+
+.volume-slider {
+  width: 110px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.volume-val-text {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 32px;
+  text-align: right;
+}
+
+/* Alarm Modal (Modal 4) */
+.alarm-modal-backdrop {
+  backdrop-filter: blur(8px);
+}
+
+.alarm-modal-card {
+  text-align: center;
+  max-width: 440px;
+  padding: 2rem 1.75rem;
+  border: 2px solid var(--primary);
+  box-shadow: 0 10px 40px rgba(99, 102, 241, 0.3);
+  animation: popInModal 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popInModal {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.alarm-badge-icon {
+  font-size: 3.2rem;
+  margin-bottom: 0.5rem;
+  animation: wiggleBadge 1.2s infinite ease-in-out;
+}
+
+@keyframes wiggleBadge {
+  0%, 100% {
+    transform: rotate(0deg) scale(1);
+  }
+  25% {
+    transform: rotate(-10deg) scale(1.1);
+  }
+  75% {
+    transform: rotate(10deg) scale(1.1);
+  }
+}
+
+.alarm-modal-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: var(--text-main);
+}
+
+.alarm-modal-desc {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 1.25rem;
+}
+
+.alarm-playing-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.9rem;
+  background-color: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 20px;
+  font-size: 0.8rem;
+  color: var(--primary);
+  margin-bottom: 1.5rem;
+}
+
+.music-note-pulse {
+  animation: bounceNote 0.8s infinite alternate ease-in-out;
+}
+
+@keyframes bounceNote {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-4px);
+  }
+}
+
+.alarm-modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+

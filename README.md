@@ -18,10 +18,10 @@
 本リポジトリの **[Releases ページ](https://github.com/tyama11/StudyFlow/releases/latest)** から、お使いの OS に合わせた最新バイナリを直接ダウンロードできます：
 
 - 🍎 **macOS (Intel & Apple Silicon M1〜M4 両対応)**:
-  - **[study-flow_1.2.0_universal.dmg](https://github.com/tyama11/StudyFlow/releases/download/v1.2.0/study-flow_1.2.0_universal.dmg)**
+  - **[study-flow_1.3.0_universal.dmg](https://github.com/tyama11/StudyFlow/releases/download/v1.3.0/study-flow_1.3.0_universal.dmg)**
 - 🪟 **Windows (64-bit)**:
-  - **[study-flow_1.2.0_x64-setup.exe](https://github.com/tyama11/StudyFlow/releases/download/v1.2.0/study-flow_1.2.0_x64-setup.exe)** （インストーラー）
-  - **[study-flow_1.2.0_x64_en-US.msi](https://github.com/tyama11/StudyFlow/releases/download/v1.2.0/study-flow_1.2.0_x64_en-US.msi)** （MSI）
+  - **[study-flow_1.3.0_x64-setup.exe](https://github.com/tyama11/StudyFlow/releases/download/v1.3.0/study-flow_1.3.0_x64-setup.exe)** （インストーラー）
+  - **[study-flow_1.3.0_x64_en-US.msi](https://github.com/tyama11/StudyFlow/releases/download/v1.3.0/study-flow_1.3.0_x64_en-US.msi)** （MSI）
 
 ---
 
@@ -88,11 +88,25 @@
   - **学習時間基準**: 「1日 3時間」など希望の目標時間を時間・分単位またはクイックプリセット（1h/2h/3h/5h/8h）で設定可能。
 - 目標設定は上部のサマリーバナーや進捗バーにリアルタイム連動し、目標達成時にはお祝いバッジが表示されます。
 
+### 11. 🍅 ポモドーロ時間カスタマイズ & 終了アラーム音（『かえるのピアノ』）
+- **自由な集中時間設定**: 従来の固定25分だけでなく、タイマー画面のクイックボタン（15分/20分/25分/30分/45分/50分/60分）またはカスタム分数入力から、学習内容や体調に合わせて自由に変更可能。
+- **時間経過時のアラーム音**: カウントダウンが0になった瞬間に、軽快で心地よいフリーBGM『かえるのピアノ』（作：こおろぎ）が再生されます。
+- **アラーム通知モーダル**: 集中終了ダイアログが開き、「アラームを止めて学習を記録」をワンタップするだけで集中した分数を自動記録。
+- **設定タブでのサウンド管理**: アラーム音のON/OFF、音量スライダー（0%〜100%）、テスト試聴ボタンを完備。
+
+---
+
+## 🎵 使用音源クレジット
+本アプリのポモドーロ終了アラーム音には、以下のフリーBGM素材を使用しています：
+- **楽曲名**: 『かえるのピアノ』
+- **作曲者**: こおろぎ 様
+- **配信元**: [フリーBGM DOVA-SYNDROME (詳細ページ)](https://dova-s.jp/bgm/detail/568)
+
 ---
 
 ## 🛠️ 主な技術スタック
 - **基盤**: [Tauri v2](https://v2.tauri.app/) (Rust)
-- **ターゲット**: macOS Universal (`universal-apple-darwin`) &amp; Windows (`x86_64-pc-windows-msvc`)
+- **ターゲット**: macOS Universal (`universal-apple-darwin`) & Windows (`x86_64-pc-windows-msvc`)
 - **UI**: HTML5, CSS3, JavaScript (Vite)
 - **CI/CD**: GitHub Actions (Node.js 24)
 

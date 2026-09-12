@@ -1,4 +1,5 @@
 import { renderWeeklyChart } from "./chart.js";
+import kaeruPianoAudioSrc from "./assets/audio/kaeru_piano.mp3";
 
 // --- State Management ---
 const STORAGE_KEYS = {
@@ -7,6 +8,7 @@ const STORAGE_KEYS = {
   THEME: "studyflow_theme",
   SUBJECTS: "studyflow_subjects",
   GOAL_SETTINGS: "studyflow_goal_settings",
+  POMODORO_SETTINGS: "studyflow_pomodoro_settings",
 };
 
 const DEFAULT_SUBJECTS = [
@@ -35,12 +37,25 @@ const DEFAULT_GOAL_SETTINGS = {
   timeTargetMinutes: 180, // デフォルト3時間
 };
 
+const DEFAULT_POMODORO_SETTINGS = {
+  workMinutes: 25, // 集中時間（分）
+  soundEnabled: true, // アラーム音を鳴らすか
+  volume: 0.8, // 音量 (0.0 - 1.0)
+};
+
 let todos = [];
 let sessions = [];
 let subjects = [];
 let goalSettings = { ...DEFAULT_GOAL_SETTINGS };
+let pomodoroSettings = { ...DEFAULT_POMODORO_SETTINGS };
 let activeTab = "tracker";
 let currentTheme = "auto"; // 'auto' | 'dark' | 'light'
+
+// Audio State
+let alarmAudio = null;
+let isAlarmRinging = false;
+let isPreviewPlaying = false;
+let previewAudio = null;
 
 // Confirm Modal Callback
 let confirmModalCallback = null;
@@ -51,6 +66,7 @@ let timerInterval = null;
 let timerSeconds = 0;
 let timerRunning = false;
 let sessionStartTime = null;
+let currentSessionDurationSeconds = 0;
 
 // History State
 let selectedHistoryDate = getTodayStr();
@@ -202,12 +218,20 @@ function loadData() {
     } else {
       goalSettings = { ...DEFAULT_GOAL_SETTINGS };
     }
+
+    const rawPomodoroSettings = localStorage.getItem(STORAGE_KEYS.POMODORO_SETTINGS);
+    if (rawPomodoroSettings) {
+      pomodoroSettings = { ...DEFAULT_POMODORO_SETTINGS, ...JSON.parse(rawPomodoroSettings) };
+    } else {
+      pomodoroSettings = { ...DEFAULT_POMODORO_SETTINGS };
+    }
   } catch (e) {
     console.error("Failed to parse localStorage data", e);
     todos = [];
     sessions = [];
     subjects = JSON.parse(JSON.stringify(DEFAULT_SUBJECTS));
     goalSettings = { ...DEFAULT_GOAL_SETTINGS };
+    pomodoroSettings = { ...DEFAULT_POMODORO_SETTINGS };
   }
 }
 
@@ -229,6 +253,184 @@ function saveGoalSettings() {
   updateGoalSettingsUI();
   updateHeaderAndSummary();
   showToast("1日の目標設定を保存しました！");
+}
+
+// --- Pomodoro & Alarm Sound ---
+function getAudioSource() {
+  return kaeruPianoAudioSrc || "./audio/kaeru_piano.mp3";
+}
+
+function initAlarmAudio() {
+  if (!alarmAudio) {
+    try {
+      alarmAudio = new Audio(getAudioSource());
+      alarmAudio.loop = true;
+    } catch (e) {
+      console.warn("Audio initialization warning:", e);
+    }
+  }
+  if (alarmAudio) {
+    alarmAudio.volume = pomodoroSettings.volume !== undefined ? pomodoroSettings.volume : 0.8;
+  }
+}
+
+function playAlarmSound() {
+  if (!pomodoroSettings.soundEnabled) return;
+  initAlarmAudio();
+  if (!alarmAudio) return;
+  isAlarmRinging = true;
+  alarmAudio.currentTime = 0;
+  alarmAudio.play().catch((err) => {
+    console.warn("Alarm play prevented (user interaction might be needed):", err);
+  });
+}
+
+function stopAlarmSound() {
+  isAlarmRinging = false;
+  if (alarmAudio) {
+    alarmAudio.pause();
+    alarmAudio.currentTime = 0;
+  }
+  const alarmBtn = document.getElementById("btn-timer-alarm-stop");
+  if (alarmBtn) alarmBtn.style.display = "none";
+  const timerCircle = document.getElementById("timer-circle");
+  if (timerCircle) timerCircle.classList.remove("completed");
+}
+
+function startPreviewSound() {
+  if (!previewAudio) {
+    try {
+      previewAudio = new Audio(getAudioSource());
+      previewAudio.loop = false;
+      previewAudio.onended = () => {
+        stopPreviewSound();
+      };
+    } catch (e) {
+      console.warn("Preview audio warning:", e);
+    }
+  }
+  if (previewAudio) {
+    previewAudio.volume = pomodoroSettings.volume !== undefined ? pomodoroSettings.volume : 0.8;
+    previewAudio.currentTime = 0;
+    previewAudio.play().then(() => {
+      isPreviewPlaying = true;
+      updateSoundPreviewButton(true);
+    }).catch((err) => {
+      console.warn("Preview audio play error:", err);
+      showToast("音声の再生がブラウザによりブロックされました");
+    });
+  }
+}
+
+function stopPreviewSound() {
+  if (previewAudio) {
+    previewAudio.pause();
+    previewAudio.currentTime = 0;
+  }
+  isPreviewPlaying = false;
+  updateSoundPreviewButton(false);
+}
+
+function togglePreviewSound() {
+  if (isPreviewPlaying) {
+    stopPreviewSound();
+  } else {
+    startPreviewSound();
+  }
+}
+
+function updateSoundPreviewButton(isPlaying) {
+  const previewText = document.getElementById("btn-sound-preview-text");
+  if (previewText) {
+    previewText.textContent = isPlaying ? "試聴を停止" : "テスト試聴";
+  }
+}
+
+function savePomodoroSettings(showNotification = false) {
+  localStorage.setItem(STORAGE_KEYS.POMODORO_SETTINGS, JSON.stringify(pomodoroSettings));
+  updatePomodoroUI();
+  if (showNotification) {
+    showToast("ポモドーロ＆アラーム設定を保存しました！");
+  }
+}
+
+function setPomodoroMinutes(minutes, updateTimerIfIdle = true) {
+  const m = Math.max(1, Math.min(180, parseInt(minutes, 10) || 25));
+  pomodoroSettings.workMinutes = m;
+  savePomodoroSettings(false);
+  if (timerMode === "pomodoro" && !timerRunning && updateTimerIfIdle) {
+    timerSeconds = m * 60;
+    updateTimerDisplay();
+  }
+}
+
+function updatePomodoroUI() {
+  const workMins = pomodoroSettings.workMinutes || 25;
+
+  // 1. タイマーモードボタンのラベル更新
+  const pomodoroModeBtn = document.getElementById("btn-mode-pomodoro");
+  if (pomodoroModeBtn) {
+    pomodoroModeBtn.textContent = `ポモドーロ (${workMins}分)`;
+  }
+
+  // 2. タイマーカードのクイックバー更新
+  const quickBar = document.getElementById("pomodoro-quick-bar");
+  if (quickBar) {
+    quickBar.style.display = timerMode === "pomodoro" ? "flex" : "none";
+  }
+
+  const quickPresets = document.querySelectorAll(".pomo-preset-btn");
+  let matchesQuickPreset = false;
+  quickPresets.forEach((btn) => {
+    const mins = parseInt(btn.dataset.minutes, 10);
+    if (mins === workMins) {
+      btn.classList.add("active");
+      matchesQuickPreset = true;
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+
+  const customInput = document.getElementById("pomo-quick-custom-input");
+  if (customInput) {
+    customInput.value = matchesQuickPreset ? "" : workMins;
+  }
+
+  // 3. 設定タブのポモドーロカード更新
+  const settingBadge = document.getElementById("pomodoro-current-badge");
+  if (settingBadge) {
+    settingBadge.textContent = `現在: ${workMins}分`;
+  }
+
+  const settingInput = document.getElementById("setting-pomo-minutes");
+  if (settingInput) {
+    settingInput.value = workMins;
+  }
+
+  const settingPresets = document.querySelectorAll(".btn-pomo-setting-preset");
+  settingPresets.forEach((btn) => {
+    const mins = parseInt(btn.dataset.minutes, 10);
+    if (mins === workMins) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+
+  const soundCheckbox = document.getElementById("setting-pomo-sound-enabled");
+  if (soundCheckbox) {
+    soundCheckbox.checked = pomodoroSettings.soundEnabled !== false;
+  }
+
+  const volumeSlider = document.getElementById("setting-pomo-volume");
+  const volumeText = document.getElementById("setting-pomo-volume-text");
+  const volPct = Math.round((pomodoroSettings.volume !== undefined ? pomodoroSettings.volume : 0.8) * 100);
+  if (volumeSlider) {
+    volumeSlider.value = volPct;
+  }
+  if (volumeText) {
+    volumeText.textContent = `${volPct}%`;
+  }
 }
 
 // --- Goal Settings UI ---
@@ -619,19 +821,36 @@ function updateTimerDisplay() {
 
 function startTimer() {
   if (timerRunning) return;
+  // オーディオアンロック (ユーザーの開始クリック契機)
+  initAlarmAudio();
+
+  // ポモドーロモードで現在0秒なら、設定した集中時間から開始
+  if (timerMode === "pomodoro" && timerSeconds <= 0) {
+    timerSeconds = (pomodoroSettings.workMinutes || 25) * 60;
+    updateTimerDisplay();
+  }
+
   timerRunning = true;
   sessionStartTime = new Date();
 
   const startBtn = document.getElementById("btn-timer-start");
   const stopBtn = document.getElementById("btn-timer-stop");
+  const alarmBtn = document.getElementById("btn-timer-alarm-stop");
   const timerCircle = document.getElementById("timer-circle");
   const chip = document.getElementById("timer-status-chip");
   const chipText = document.getElementById("timer-status-text");
 
   if (startBtn) startBtn.style.display = "none";
   if (stopBtn) stopBtn.style.display = "inline-flex";
-  if (timerCircle) timerCircle.classList.add("active");
-  if (chip) chip.classList.add("running");
+  if (alarmBtn) alarmBtn.style.display = "none";
+  if (timerCircle) {
+    timerCircle.classList.add("active");
+    timerCircle.classList.remove("completed");
+  }
+  if (chip) {
+    chip.classList.add("running");
+    chip.classList.remove("completed");
+  }
   if (chipText) chipText.textContent = "学習中";
 
   // Update target label
@@ -649,19 +868,20 @@ function startTimer() {
       updateTimerDisplay();
     } else {
       // Pomodoro countdown
-      if (timerSeconds > 0) {
+      if (timerSeconds > 1) {
         timerSeconds--;
         updateTimerDisplay();
       } else {
-        stopTimer(true);
-        alert("ポモドーロ完了！素晴らしい集中力でした。少し休憩しましょう。");
+        // カウントダウンが0に到達！
+        timerSeconds = 0;
+        updateTimerDisplay();
+        triggerPomodoroCompleted();
       }
     }
   }, 1000);
 }
 
-function stopTimer(isCompleted = false) {
-  if (!timerRunning && timerSeconds === 0) return;
+function triggerPomodoroCompleted() {
   if (timerInterval) {
     clearInterval(timerInterval);
     timerInterval = null;
@@ -670,22 +890,76 @@ function stopTimer(isCompleted = false) {
 
   const startBtn = document.getElementById("btn-timer-start");
   const stopBtn = document.getElementById("btn-timer-stop");
+  const alarmBtn = document.getElementById("btn-timer-alarm-stop");
+  const timerCircle = document.getElementById("timer-circle");
+  const chip = document.getElementById("timer-status-chip");
+  const chipText = document.getElementById("timer-status-text");
+
+  if (startBtn) startBtn.style.display = "none";
+  if (stopBtn) stopBtn.style.display = "none";
+  if (alarmBtn) alarmBtn.style.display = "inline-flex";
+  if (timerCircle) {
+    timerCircle.classList.remove("active");
+    timerCircle.classList.add("completed");
+  }
+  if (chip) {
+    chip.classList.add("running");
+    chip.classList.add("completed");
+  }
+  if (chipText) chipText.textContent = "🎉 集中完了";
+
+  // アラーム音再生
+  playAlarmSound();
+
+  // 完了モーダル表示
+  const modal = document.getElementById("alarm-modal");
+  const completedText = document.getElementById("alarm-completed-minutes-text");
+  if (completedText) {
+    completedText.textContent = `${pomodoroSettings.workMinutes || 25}分`;
+  }
+  if (modal) {
+    modal.style.display = "flex";
+  }
+}
+
+function stopTimer(isCompleted = false) {
+  if (!timerRunning && timerSeconds === 0 && !isAlarmRinging) return;
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  timerRunning = false;
+
+  const startBtn = document.getElementById("btn-timer-start");
+  const stopBtn = document.getElementById("btn-timer-stop");
+  const alarmBtn = document.getElementById("btn-timer-alarm-stop");
   const timerCircle = document.getElementById("timer-circle");
   const chip = document.getElementById("timer-status-chip");
   const chipText = document.getElementById("timer-status-text");
 
   if (startBtn) startBtn.style.display = "inline-flex";
   if (stopBtn) stopBtn.style.display = "none";
+  if (alarmBtn) alarmBtn.style.display = "none";
   if (timerCircle) timerCircle.classList.remove("active");
   if (chip) chip.classList.remove("running");
   if (chipText) chipText.textContent = "待機中";
 
-  if (timerSeconds > 0) {
-    openRecordModal();
+  // 学習時間の計算
+  let elapsed = 0;
+  if (timerMode === "countup") {
+    elapsed = timerSeconds;
+  } else {
+    // ポモドーロモードの場合: 設定分数 - 残り秒数
+    const totalPomoSec = (pomodoroSettings.workMinutes || 25) * 60;
+    elapsed = Math.max(1, totalPomoSec - timerSeconds);
+  }
+
+  if (elapsed > 0) {
+    openRecordModal(elapsed);
   }
 }
 
-// リセット機能（確実に00:00:00および停止状態を反映）
+// リセット機能（確実に初期値および停止状態を反映）
 function resetTimer() {
   if (timerInterval) {
     clearInterval(timerInterval);
@@ -693,20 +967,30 @@ function resetTimer() {
   }
   timerRunning = false;
   sessionStartTime = null;
+  stopAlarmSound();
 
-  timerSeconds = timerMode === "pomodoro" ? 25 * 60 : 0;
+  const pomoSec = (pomodoroSettings.workMinutes || 25) * 60;
+  timerSeconds = timerMode === "pomodoro" ? pomoSec : 0;
   updateTimerDisplay();
 
   const startBtn = document.getElementById("btn-timer-start");
   const stopBtn = document.getElementById("btn-timer-stop");
+  const alarmBtn = document.getElementById("btn-timer-alarm-stop");
   const timerCircle = document.getElementById("timer-circle");
   const chip = document.getElementById("timer-status-chip");
   const chipText = document.getElementById("timer-status-text");
 
   if (startBtn) startBtn.style.display = "inline-flex";
   if (stopBtn) stopBtn.style.display = "none";
-  if (timerCircle) timerCircle.classList.remove("active");
-  if (chip) chip.classList.remove("running");
+  if (alarmBtn) alarmBtn.style.display = "none";
+  if (timerCircle) {
+    timerCircle.classList.remove("active");
+    timerCircle.classList.remove("completed");
+  }
+  if (chip) {
+    chip.classList.remove("running");
+    chip.classList.remove("completed");
+  }
   if (chipText) chipText.textContent = "待機中";
 
   const subjectSelect = document.getElementById("timer-subject");
@@ -732,7 +1016,7 @@ function startTimerForTodo(todoId) {
 }
 
 // --- Record Modal ---
-function openRecordModal() {
+function openRecordModal(durationSec = null) {
   const modal = document.getElementById("record-modal");
   const durationText = document.getElementById("modal-duration-text");
   const subjectInput = document.getElementById("modal-subject");
@@ -740,7 +1024,11 @@ function openRecordModal() {
 
   const subjectSelect = document.getElementById("timer-subject");
 
-  if (durationText) durationText.textContent = formatDuration(timerSeconds);
+  currentSessionDurationSeconds = durationSec !== null ? durationSec : (
+    timerMode === "pomodoro" ? (pomodoroSettings.workMinutes || 25) * 60 : timerSeconds
+  );
+
+  if (durationText) durationText.textContent = formatDuration(currentSessionDurationSeconds);
   if (subjectInput && subjectSelect) subjectInput.value = subjectSelect.value;
   if (memoInput) memoInput.value = "";
   if (modal) modal.style.display = "flex";
@@ -756,15 +1044,19 @@ function saveCurrentSession() {
   const todoSelect = document.getElementById("timer-todo-link");
   const memoInput = document.getElementById("modal-memo");
 
+  const durationSec = currentSessionDurationSeconds > 0 ? currentSessionDurationSeconds : (
+    timerMode === "pomodoro" ? (pomodoroSettings.workMinutes || 25) * 60 : timerSeconds
+  );
+
   const endTime = new Date();
-  const startTime = sessionStartTime || new Date(endTime.getTime() - timerSeconds * 1000);
+  const startTime = sessionStartTime || new Date(endTime.getTime() - durationSec * 1000);
 
   const newSession = {
     id: generateId(),
     date: getTodayStr(),
     startTime: startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     endTime: endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    durationSeconds: timerSeconds,
+    durationSeconds: durationSec,
     subject: subjectSelect ? subjectSelect.value : "その他自習",
     todoId: todoSelect ? todoSelect.value : null,
     memo: memoInput ? memoInput.value : "",
@@ -1185,12 +1477,13 @@ function switchTab(tabName) {
 function exportDataAsJSON() {
   const payload = {
     appName: "StudyFlow",
-    version: "1.1",
+    version: "1.3.0",
     exportDate: new Date().toISOString(),
     todos,
     sessions,
     subjects,
     goalSettings,
+    pomodoroSettings,
   };
 
   const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
@@ -1222,6 +1515,11 @@ function importDataFromJSON(file) {
           localStorage.setItem(STORAGE_KEYS.GOAL_SETTINGS, JSON.stringify(goalSettings));
           updateGoalSettingsUI();
           updateHeaderAndSummary();
+        }
+        if (data.pomodoroSettings && typeof data.pomodoroSettings === "object") {
+          pomodoroSettings = { ...DEFAULT_POMODORO_SETTINGS, ...data.pomodoroSettings };
+          savePomodoroSettings(false);
+          updatePomodoroUI();
         }
         showToast("データの読み込み・復元が完了しました！");
       } else {
@@ -1327,6 +1625,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initTheme();
   loadData();
   renderSubjectSelects();
+  updatePomodoroUI();
   updateAllViews();
   resetTimer();
 
@@ -1468,13 +1767,118 @@ document.addEventListener("DOMContentLoaded", () => {
     timerMode = "countup";
     document.getElementById("btn-mode-countup").classList.add("active");
     document.getElementById("btn-mode-pomodoro").classList.remove("active");
+    updatePomodoroUI();
     resetTimer();
   });
   document.getElementById("btn-mode-pomodoro")?.addEventListener("click", () => {
     timerMode = "pomodoro";
     document.getElementById("btn-mode-pomodoro").classList.add("active");
     document.getElementById("btn-mode-countup").classList.remove("active");
+    updatePomodoroUI();
     resetTimer();
+  });
+
+  // Pomodoro Quick Bar (Timer Card) Presets & Custom Input
+  document.querySelectorAll(".pomo-preset-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const mins = parseInt(btn.getAttribute("data-minutes"), 10);
+      if (mins) {
+        setPomodoroMinutes(mins);
+      }
+    });
+  });
+
+  const quickCustomInput = document.getElementById("pomo-quick-custom-input");
+  quickCustomInput?.addEventListener("change", (e) => {
+    const val = parseInt(e.target.value, 10);
+    if (val && val >= 1 && val <= 180) {
+      setPomodoroMinutes(val);
+    }
+  });
+
+  // Alarm ringing stop button on Timer Card
+  document.getElementById("btn-timer-alarm-stop")?.addEventListener("click", () => {
+    stopAlarmSound();
+    const modal = document.getElementById("alarm-modal");
+    if (modal) modal.style.display = "none";
+    openRecordModal((pomodoroSettings.workMinutes || 25) * 60);
+  });
+
+  // Pomodoro Settings Card in Settings Tab
+  const settingPomoInput = document.getElementById("setting-pomo-minutes");
+  settingPomoInput?.addEventListener("change", (e) => {
+    const val = parseInt(e.target.value, 10);
+    if (val && val >= 1 && val <= 180) {
+      setPomodoroMinutes(val, false);
+    }
+  });
+
+  document.querySelectorAll(".btn-pomo-setting-preset").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const mins = parseInt(btn.getAttribute("data-minutes"), 10);
+      if (mins) {
+        setPomodoroMinutes(mins, false);
+      }
+    });
+  });
+
+  // Sound Preview Button
+  document.getElementById("btn-sound-preview")?.addEventListener("click", togglePreviewSound);
+
+  // Sound Options (Toggle & Volume)
+  document.getElementById("setting-pomo-sound-enabled")?.addEventListener("change", (e) => {
+    pomodoroSettings.soundEnabled = e.target.checked;
+    savePomodoroSettings(false);
+  });
+
+  const volumeSlider = document.getElementById("setting-pomo-volume");
+  volumeSlider?.addEventListener("input", (e) => {
+    const vol = parseInt(e.target.value, 10) / 100;
+    pomodoroSettings.volume = vol;
+    if (alarmAudio) alarmAudio.volume = vol;
+    if (previewAudio) previewAudio.volume = vol;
+    const volText = document.getElementById("setting-pomo-volume-text");
+    if (volText) volText.textContent = `${e.target.value}%`;
+  });
+  volumeSlider?.addEventListener("change", () => {
+    savePomodoroSettings(false);
+  });
+
+  document.getElementById("pomodoro-settings-form")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    savePomodoroSettings(true);
+  });
+
+  // Modal 4: Pomodoro Completed Alarm Modal
+  document.getElementById("alarm-modal-btn-record")?.addEventListener("click", () => {
+    stopAlarmSound();
+    const modal = document.getElementById("alarm-modal");
+    if (modal) modal.style.display = "none";
+    openRecordModal((pomodoroSettings.workMinutes || 25) * 60);
+  });
+
+  document.getElementById("alarm-modal-btn-dismiss")?.addEventListener("click", () => {
+    stopAlarmSound();
+    const modal = document.getElementById("alarm-modal");
+    if (modal) modal.style.display = "none";
+    resetTimer();
+  });
+
+  // Keyboard shortcut to dismiss alarm if ringing
+  window.addEventListener("keydown", (e) => {
+    if (isAlarmRinging) {
+      if (e.key === "Escape") {
+        stopAlarmSound();
+        const modal = document.getElementById("alarm-modal");
+        if (modal) modal.style.display = "none";
+        resetTimer();
+      } else if (e.key === "Enter" || e.key === " ") {
+        stopAlarmSound();
+        const modal = document.getElementById("alarm-modal");
+        if (modal) modal.style.display = "none";
+        openRecordModal((pomodoroSettings.workMinutes || 25) * 60);
+      }
+    }
   });
 
   // Subject change in timer
