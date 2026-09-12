@@ -18,10 +18,10 @@
 本リポジトリの **[Releases ページ](https://github.com/tyama11/StudyFlow/releases/latest)** から、お使いの OS に合わせた最新バイナリを直接ダウンロードできます：
 
 - 🍎 **macOS (Intel & Apple Silicon M1〜M4 両対応)**:
-  - **[study-flow_1.1.0_universal.dmg](https://github.com/tyama11/StudyFlow/releases/download/v1.1.0/study-flow_1.1.0_universal.dmg)**
+  - **[study-flow_1.2.0_universal.dmg](https://github.com/tyama11/StudyFlow/releases/download/v1.2.0/study-flow_1.2.0_universal.dmg)**
 - 🪟 **Windows (64-bit)**:
-  - **[study-flow_1.1.0_x64-setup.exe](https://github.com/tyama11/StudyFlow/releases/download/v1.1.0/study-flow_1.1.0_x64-setup.exe)** （インストーラー）
-  - **[study-flow_1.1.0_x64_en-US.msi](https://github.com/tyama11/StudyFlow/releases/download/v1.1.0/study-flow_1.1.0_x64_en-US.msi)** （MSI）
+  - **[study-flow_1.2.0_x64-setup.exe](https://github.com/tyama11/StudyFlow/releases/download/v1.2.0/study-flow_1.2.0_x64-setup.exe)** （インストーラー）
+  - **[study-flow_1.2.0_x64_en-US.msi](https://github.com/tyama11/StudyFlow/releases/download/v1.2.0/study-flow_1.2.0_x64_en-US.msi)** （MSI）
 
 ---
 
@@ -81,6 +81,12 @@
 ### 9. 📚 科目・学習分野の自由なカスタマイズ
 - 「設定 &amp; データ」タブから、資格試験（英検、簿記、プログラミングなど）や特定科目など、学習したい科目を自由に追加・色指定・削除・リセット可能。
 - 追加した科目はタイマー計測、TODO、グラフ、バッジに即座に反映されます。
+
+### 10. 🎯 1日の目標設定（時間 or タスク数 & 目標値カスタマイズ）
+- 1日の達成基準を「**タスク数（個数）基準**」または「**学習時間基準**」から選択可能。
+  - **タスク数基準**: 「全タスク完了」または「指定個数（例: 1日 5個）」から設定可能。
+  - **学習時間基準**: 「1日 3時間」など希望の目標時間を時間・分単位またはクイックプリセット（1h/2h/3h/5h/8h）で設定可能。
+- 目標設定は上部のサマリーバナーや進捗バーにリアルタイム連動し、目標達成時にはお祝いバッジが表示されます。
 
 ---
 

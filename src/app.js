@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   SESSIONS: "studyflow_sessions",
   THEME: "studyflow_theme",
   SUBJECTS: "studyflow_subjects",
+  GOAL_SETTINGS: "studyflow_goal_settings",
 };
 
 const DEFAULT_SUBJECTS = [
@@ -27,9 +28,17 @@ const DEFAULT_SUBJECTS = [
   { name: "その他自習", color: "#64748b" },
 ];
 
+const DEFAULT_GOAL_SETTINGS = {
+  type: "tasks", // "tasks" (タスク数) | "time" (学習時間)
+  taskTargetMode: "all", // "all" (全タスク完了) | "custom" (指定個数)
+  taskTargetCount: 5,
+  timeTargetMinutes: 180, // デフォルト3時間
+};
+
 let todos = [];
 let sessions = [];
 let subjects = [];
+let goalSettings = { ...DEFAULT_GOAL_SETTINGS };
 let activeTab = "tracker";
 let currentTheme = "auto"; // 'auto' | 'dark' | 'light'
 
@@ -186,11 +195,19 @@ function loadData() {
     } else {
       subjects = JSON.parse(JSON.stringify(DEFAULT_SUBJECTS));
     }
+
+    const rawGoalSettings = localStorage.getItem(STORAGE_KEYS.GOAL_SETTINGS);
+    if (rawGoalSettings) {
+      goalSettings = { ...DEFAULT_GOAL_SETTINGS, ...JSON.parse(rawGoalSettings) };
+    } else {
+      goalSettings = { ...DEFAULT_GOAL_SETTINGS };
+    }
   } catch (e) {
     console.error("Failed to parse localStorage data", e);
     todos = [];
     sessions = [];
     subjects = JSON.parse(JSON.stringify(DEFAULT_SUBJECTS));
+    goalSettings = { ...DEFAULT_GOAL_SETTINGS };
   }
 }
 
@@ -205,6 +222,68 @@ function saveSubjects() {
   renderSubjectSelects();
   renderSubjectManageList();
   updateAllViews();
+}
+
+function saveGoalSettings() {
+  localStorage.setItem(STORAGE_KEYS.GOAL_SETTINGS, JSON.stringify(goalSettings));
+  updateGoalSettingsUI();
+  updateHeaderAndSummary();
+  showToast("1日の目標設定を保存しました！");
+}
+
+// --- Goal Settings UI ---
+function updateGoalSettingsUI() {
+  const typeTasksRadio = document.querySelector('input[name="goal-type"][value="tasks"]');
+  const typeTimeRadio = document.querySelector('input[name="goal-type"][value="time"]');
+  const labelTasks = document.getElementById("goal-type-label-tasks");
+  const labelTime = document.getElementById("goal-type-label-time");
+  const tasksConfig = document.getElementById("goal-tasks-config");
+  const timeConfig = document.getElementById("goal-time-config");
+
+  if (goalSettings.type === "time") {
+    if (typeTimeRadio) typeTimeRadio.checked = true;
+    if (labelTime) labelTime.classList.add("active");
+    if (labelTasks) labelTasks.classList.remove("active");
+    if (timeConfig) timeConfig.style.display = "block";
+    if (tasksConfig) tasksConfig.style.display = "none";
+  } else {
+    if (typeTasksRadio) typeTasksRadio.checked = true;
+    if (labelTasks) labelTasks.classList.add("active");
+    if (labelTime) labelTime.classList.remove("active");
+    if (tasksConfig) tasksConfig.style.display = "block";
+    if (timeConfig) timeConfig.style.display = "none";
+  }
+
+  const modeAllRadio = document.querySelector('input[name="goal-task-mode"][value="all"]');
+  const modeCustomRadio = document.querySelector('input[name="goal-task-mode"][value="custom"]');
+  const countRow = document.getElementById("goal-task-count-row");
+  const countInput = document.getElementById("goal-task-count-input");
+
+  if (goalSettings.taskTargetMode === "custom") {
+    if (modeCustomRadio) modeCustomRadio.checked = true;
+    if (countRow) countRow.style.display = "flex";
+  } else {
+    if (modeAllRadio) modeAllRadio.checked = true;
+    if (countRow) countRow.style.display = "none";
+  }
+  if (countInput) countInput.value = goalSettings.taskTargetCount || 5;
+
+  const hoursInput = document.getElementById("goal-time-hours-input");
+  const minsInput = document.getElementById("goal-time-mins-input");
+  const totalMins = goalSettings.timeTargetMinutes || 180;
+  if (hoursInput) hoursInput.value = Math.floor(totalMins / 60);
+  if (minsInput) minsInput.value = totalMins % 60;
+
+  const badge = document.getElementById("current-goal-badge");
+  if (badge) {
+    if (goalSettings.type === "time") {
+      badge.textContent = `学習時間 (目標 ${formatHoursMinutes(totalMins * 60)})`;
+    } else if (goalSettings.taskTargetMode === "custom") {
+      badge.textContent = `タスク数 (目標 ${goalSettings.taskTargetCount} 個)`;
+    } else {
+      badge.textContent = `タスク数 (全タスク完了)`;
+    }
+  }
 }
 
 // --- Subject Management ---
@@ -327,6 +406,7 @@ function updateAllViews() {
   updateTodoLinkOptions();
   renderHistoryView();
   renderSubjectManageList();
+  updateGoalSettingsUI();
 }
 
 function updateHeaderAndSummary() {
@@ -346,25 +426,70 @@ function updateHeaderAndSummary() {
     todayTotalTimeEl.textContent = formatHoursMinutes(totalSeconds);
   }
 
-  // Calculate today's TODO ratio
+  // Elements for goal display
+  const goalIconEl = document.getElementById("today-goal-icon");
+  const goalLabelEl = document.getElementById("today-goal-label");
+  const goalRatioEl = document.getElementById("today-todo-ratio");
+  const progressLabelEl = document.getElementById("today-progress-label");
+  const percentEl = document.getElementById("today-progress-percent");
+  const progressBar = document.getElementById("today-progress-bar");
+  const goalBadgeEl = document.getElementById("today-goal-badge");
+
   const todayTodos = todos.filter((t) => !t.date || t.date === todayStr);
   const completedCount = todayTodos.filter((t) => t.completed).length;
   const totalTodoCount = todayTodos.length;
 
-  const todayTodoRatioEl = document.getElementById("today-todo-ratio");
-  if (todayTodoRatioEl) {
-    todayTodoRatioEl.textContent = `${completedCount} / ${totalTodoCount} 完了`;
+  let pct = 0;
+  let isAchieved = false;
+
+  if (goalSettings.type === "time") {
+    // --- 時間基準 ---
+    const targetMinutes = Math.max(1, goalSettings.timeTargetMinutes || 180);
+    const targetSeconds = targetMinutes * 60;
+
+    if (goalIconEl) goalIconEl.textContent = "⏱️";
+    if (goalLabelEl) goalLabelEl.textContent = `本日の学習目標 (${formatHoursMinutes(targetSeconds)})`;
+    if (goalRatioEl) goalRatioEl.textContent = `${formatHoursMinutes(totalSeconds)} / ${formatHoursMinutes(targetSeconds)}`;
+    if (progressLabelEl) progressLabelEl.textContent = "目標時間達成率";
+
+    pct = Math.round((totalSeconds / targetSeconds) * 100);
+    isAchieved = totalSeconds >= targetSeconds;
+  } else {
+    // --- タスク数基準 ---
+    if (goalIconEl) goalIconEl.textContent = "📝";
+    if (progressLabelEl) progressLabelEl.textContent = "タスク達成率";
+
+    if (goalSettings.taskTargetMode === "custom") {
+      const targetCount = Math.max(1, goalSettings.taskTargetCount || 5);
+      if (goalLabelEl) goalLabelEl.textContent = `本日のTODO達成 (目標 ${targetCount} 個)`;
+      if (goalRatioEl) goalRatioEl.textContent = `${completedCount} / ${targetCount} 個達成`;
+      pct = Math.round((completedCount / targetCount) * 100);
+      isAchieved = completedCount >= targetCount;
+    } else {
+      // 全タスク完了モード
+      if (goalLabelEl) goalLabelEl.textContent = "本日のTODO達成 (全タスク)";
+      if (goalRatioEl) goalRatioEl.textContent = `${completedCount} / ${totalTodoCount} 完了`;
+      pct = totalTodoCount > 0 ? Math.round((completedCount / totalTodoCount) * 100) : 0;
+      isAchieved = completedCount === totalTodoCount && totalTodoCount > 0;
+    }
   }
 
-  const pct = totalTodoCount > 0 ? Math.round((completedCount / totalTodoCount) * 100) : 0;
-  const percentEl = document.getElementById("today-progress-percent");
+  // 達成率とプログレスバーの更新
   if (percentEl) {
     percentEl.textContent = `${pct}%`;
   }
-
-  const progressBar = document.getElementById("today-progress-bar");
   if (progressBar) {
-    progressBar.style.width = `${pct}%`;
+    progressBar.style.width = `${Math.min(100, pct)}%`;
+    if (isAchieved) {
+      progressBar.style.background = "linear-gradient(90deg, #10b981, #059669)";
+    } else {
+      progressBar.style.background = "";
+    }
+  }
+
+  // 達成バッジ
+  if (goalBadgeEl) {
+    goalBadgeEl.style.display = isAchieved ? "inline-block" : "none";
   }
 }
 
@@ -1065,6 +1190,7 @@ function exportDataAsJSON() {
     todos,
     sessions,
     subjects,
+    goalSettings,
   };
 
   const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
@@ -1090,6 +1216,12 @@ function importDataFromJSON(file) {
           saveSubjects();
         } else {
           saveData();
+        }
+        if (data.goalSettings && typeof data.goalSettings === "object") {
+          goalSettings = { ...DEFAULT_GOAL_SETTINGS, ...data.goalSettings };
+          localStorage.setItem(STORAGE_KEYS.GOAL_SETTINGS, JSON.stringify(goalSettings));
+          updateGoalSettingsUI();
+          updateHeaderAndSummary();
         }
         showToast("データの読み込み・復元が完了しました！");
       } else {
@@ -1206,6 +1338,70 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.addEventListener("click", () => {
       switchTab(btn.getAttribute("data-tab"));
     });
+  });
+
+  // Goal Settings Controls
+  const goalForm = document.getElementById("goal-settings-form");
+  const goalTypeRadios = document.querySelectorAll('input[name="goal-type"]');
+  const goalTaskModeRadios = document.querySelectorAll('input[name="goal-task-mode"]');
+
+  goalTypeRadios.forEach((radio) => {
+    radio.addEventListener("change", (e) => {
+      const type = e.target.value;
+      const tasksConfig = document.getElementById("goal-tasks-config");
+      const timeConfig = document.getElementById("goal-time-config");
+      const labelTasks = document.getElementById("goal-type-label-tasks");
+      const labelTime = document.getElementById("goal-type-label-time");
+
+      if (type === "time") {
+        if (timeConfig) timeConfig.style.display = "block";
+        if (tasksConfig) tasksConfig.style.display = "none";
+        if (labelTime) labelTime.classList.add("active");
+        if (labelTasks) labelTasks.classList.remove("active");
+      } else {
+        if (tasksConfig) tasksConfig.style.display = "block";
+        if (timeConfig) timeConfig.style.display = "none";
+        if (labelTasks) labelTasks.classList.add("active");
+        if (labelTime) labelTime.classList.remove("active");
+      }
+    });
+  });
+
+  goalTaskModeRadios.forEach((radio) => {
+    radio.addEventListener("change", (e) => {
+      const countRow = document.getElementById("goal-task-count-row");
+      if (countRow) {
+        countRow.style.display = e.target.value === "custom" ? "flex" : "none";
+      }
+    });
+  });
+
+  document.querySelectorAll(".btn-goal-preset").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const mins = Number(btn.getAttribute("data-minutes") || 180);
+      const hoursInput = document.getElementById("goal-time-hours-input");
+      const minsInput = document.getElementById("goal-time-mins-input");
+      if (hoursInput) hoursInput.value = Math.floor(mins / 60);
+      if (minsInput) minsInput.value = mins % 60;
+    });
+  });
+
+  goalForm?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const type = document.querySelector('input[name="goal-type"]:checked')?.value || "tasks";
+    const taskMode = document.querySelector('input[name="goal-task-mode"]:checked')?.value || "all";
+    const count = Number(document.getElementById("goal-task-count-input")?.value || 5);
+    const hours = Number(document.getElementById("goal-time-hours-input")?.value || 0);
+    const mins = Number(document.getElementById("goal-time-mins-input")?.value || 0);
+    const totalMinutes = Math.max(5, hours * 60 + mins);
+
+    goalSettings = {
+      type,
+      taskTargetMode: taskMode,
+      taskTargetCount: Math.max(1, count),
+      timeTargetMinutes: totalMinutes,
+    };
+    saveGoalSettings();
   });
 
   // Subject Management Controls

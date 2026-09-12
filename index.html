@@ -77,22 +77,23 @@
             </div>
             <div class="summary-divider"></div>
             <div class="summary-metric">
-              <span class="metric-icon">📝</span>
+              <span class="metric-icon" id="today-goal-icon">📝</span>
               <div>
-                <div class="metric-label">本日のTODO達成</div>
+                <div class="metric-label" id="today-goal-label">本日のTODO達成</div>
                 <div class="metric-value" id="today-todo-ratio">0 / 0 完了</div>
               </div>
             </div>
             <div class="summary-divider"></div>
             <div class="summary-progress-wrap">
               <div class="progress-info">
-                <span>今日のタスク達成率</span>
+                <span id="today-progress-label">今日のタスク達成率</span>
                 <span id="today-progress-percent">0%</span>
               </div>
               <div class="progress-bar-bg">
                 <div class="progress-bar-fill" id="today-progress-bar" style="width: 0%"></div>
               </div>
             </div>
+            <span id="today-goal-badge" class="goal-achieved-badge" style="display: none;">🎉 目標達成！</span>
           </div>
 
           <div class="dashboard-grid">
@@ -336,6 +337,101 @@
 
         <!-- TAB 3: 設定 & データ管理 -->
         <section id="tab-settings" class="tab-pane">
+          <!-- 🎯 1日の目標設定 (時間 or タスク数 & 目標値) -->
+          <div class="card" style="margin-bottom: 1.5rem;">
+            <div class="card-header">
+              <h3>🎯 1日の目標設定</h3>
+              <span class="subject-total-badge" id="current-goal-badge">タスク数基準</span>
+            </div>
+            <p class="section-desc">
+              本日の達成度や進捗バーの基準を「完了タスク数」か「総学習時間」から選択し、1日の目標値を設定できます。
+            </p>
+
+            <form id="goal-settings-form" class="goal-settings-wrap">
+              <!-- 目標基準の選択カード -->
+              <div class="form-group" style="margin-bottom: 1.25rem;">
+                <label class="form-label-bold">目標の測定基準:</label>
+                <div class="goal-type-grid">
+                  <label class="goal-type-card active" id="goal-type-label-tasks">
+                    <input type="radio" name="goal-type" value="tasks" checked class="goal-radio" />
+                    <div class="goal-card-body">
+                      <span class="goal-card-icon">📝</span>
+                      <div class="goal-card-info">
+                        <strong>タスク数（個数）基準</strong>
+                        <span>完了したTODOタスクの個数で本日の達成率を測定</span>
+                      </div>
+                    </div>
+                  </label>
+
+                  <label class="goal-type-card" id="goal-type-label-time">
+                    <input type="radio" name="goal-type" value="time" class="goal-radio" />
+                    <div class="goal-card-body">
+                      <span class="goal-card-icon">⏱️</span>
+                      <div class="goal-card-info">
+                        <strong>学習時間基準</strong>
+                        <span>本日の合計勉強時間（時間・分）で達成率を測定</span>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- タスク数基準の目標値入力 -->
+              <div id="goal-tasks-config" class="goal-config-panel">
+                <label class="form-label-bold">目標タスク数の設定:</label>
+                <div class="goal-sub-options">
+                  <label class="radio-inline">
+                    <input type="radio" name="goal-task-mode" value="all" checked />
+                    <span>今日登録したすべてのTODOタスクを完了する</span>
+                  </label>
+                  <label class="radio-inline">
+                    <input type="radio" name="goal-task-mode" value="custom" />
+                    <span>目標完了数を指定する</span>
+                  </label>
+                </div>
+                <div id="goal-task-count-row" class="goal-inline-input" style="display: none;">
+                  <label for="goal-task-count-input">1日の目標数:</label>
+                  <div class="unit-input-wrap">
+                    <input type="number" id="goal-task-count-input" class="text-input" min="1" max="100" value="5" />
+                    <span class="unit-label">個</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 学習時間基準の目標値入力 -->
+              <div id="goal-time-config" class="goal-config-panel" style="display: none;">
+                <label class="form-label-bold">1日の目標学習時間:</label>
+                <div class="goal-time-row">
+                  <div class="goal-time-inputs">
+                    <div class="unit-input-wrap">
+                      <input type="number" id="goal-time-hours-input" class="text-input" min="0" max="24" value="3" />
+                      <span class="unit-label">時間</span>
+                    </div>
+                    <div class="unit-input-wrap">
+                      <input type="number" id="goal-time-mins-input" class="text-input" min="0" max="59" step="5" value="0" />
+                      <span class="unit-label">分</span>
+                    </div>
+                  </div>
+                  <div class="goal-preset-chips">
+                    <span class="preset-hint">クイック設定:</span>
+                    <button type="button" class="btn btn-secondary btn-sm btn-goal-preset" data-minutes="60">1時間</button>
+                    <button type="button" class="btn btn-secondary btn-sm btn-goal-preset" data-minutes="120">2時間</button>
+                    <button type="button" class="btn btn-secondary btn-sm btn-goal-preset" data-minutes="180">3時間</button>
+                    <button type="button" class="btn btn-secondary btn-sm btn-goal-preset" data-minutes="300">5時間</button>
+                    <button type="button" class="btn btn-secondary btn-sm btn-goal-preset" data-minutes="480">8時間</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="goal-actions-row">
+                <button type="submit" class="btn btn-primary" id="btn-save-goal-settings">
+                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                  <span>目標設定を保存</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
           <!-- 科目・学習分野のカスタマイズ -->
           <div class="card" style="margin-bottom: 1.5rem;">
             <div class="card-header">
