@@ -34,7 +34,7 @@
           </button>
           <button class="nav-item" data-tab="settings">
             <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-            <span>データ管理</span>
+            <span>設定 &amp; データ</span>
           </button>
         </nav>
 
@@ -334,8 +334,73 @@
           </div>
         </section>
 
-        <!-- TAB 3: データ管理 -->
+        <!-- TAB 3: 設定 & データ管理 -->
         <section id="tab-settings" class="tab-pane">
+          <!-- 科目・学習分野のカスタマイズ -->
+          <div class="card" style="margin-bottom: 1.5rem;">
+            <div class="card-header">
+              <h3>📚 科目・学習分野のカスタマイズ</h3>
+              <span class="subject-total-badge" id="subject-count-badge">0 科目登録中</span>
+            </div>
+            <p class="section-desc">
+              タイマー計測やTODOで使用する科目を自由に追加・削除・管理できます。設定した色は分野別グラフやバッジに反映されます。
+            </p>
+
+            <!-- 科目新規作成フォーム -->
+            <form id="subject-form" class="subject-form-wrap">
+              <div class="subject-form-row">
+                <div class="form-group flex-1">
+                  <label for="subject-input-name">科目名</label>
+                  <input type="text" id="subject-input-name" class="text-input" placeholder="例: 英検、簿記、プログラミング、漢検、小論文..." required maxlength="20" />
+                </div>
+                <div class="form-group color-select-group">
+                  <label for="subject-input-color">テーマ色</label>
+                  <div class="color-picker-input-wrap">
+                    <input type="color" id="subject-input-color" value="#6366f1" class="color-input" />
+                    <span id="subject-color-hex" class="color-hex-label">#6366f1</span>
+                  </div>
+                </div>
+                <div class="form-group btn-group-align">
+                  <button type="submit" class="btn btn-primary" id="btn-add-subject">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <span>科目を追加</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- おすすめカラーパレット -->
+              <div class="color-presets-row">
+                <span class="color-presets-label">おすすめ色:</span>
+                <div class="color-dots-group">
+                  <button type="button" class="color-dot-btn active" data-color="#6366f1" style="background-color: #6366f1;" title="インディゴ"></button>
+                  <button type="button" class="color-dot-btn" data-color="#3b82f6" style="background-color: #3b82f6;" title="ブルー"></button>
+                  <button type="button" class="color-dot-btn" data-color="#0ea5e9" style="background-color: #0ea5e9;" title="スカイ"></button>
+                  <button type="button" class="color-dot-btn" data-color="#10b981" style="background-color: #10b981;" title="エメラルド"></button>
+                  <button type="button" class="color-dot-btn" data-color="#ef4444" style="background-color: #ef4444;" title="レッド"></button>
+                  <button type="button" class="color-dot-btn" data-color="#f59e0b" style="background-color: #f59e0b;" title="アンバー"></button>
+                  <button type="button" class="color-dot-btn" data-color="#8b5cf6" style="background-color: #8b5cf6;" title="パープル"></button>
+                  <button type="button" class="color-dot-btn" data-color="#ec4899" style="background-color: #ec4899;" title="ピンク"></button>
+                  <button type="button" class="color-dot-btn" data-color="#06b6d4" style="background-color: #06b6d4;" title="シアン"></button>
+                  <button type="button" class="color-dot-btn" data-color="#64748b" style="background-color: #64748b;" title="スレート"></button>
+                </div>
+              </div>
+            </form>
+
+            <!-- 登録済み科目一覧リスト -->
+            <div class="subject-list-section">
+              <div class="subject-list-header">
+                <h4>登録済みの科目一覧</h4>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-reset-subjects" title="科目を初期状態（大学受験標準セット）に戻します">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                  <span>初期科目にリセット</span>
+                </button>
+              </div>
+              <div class="subject-chips-container" id="subject-chips-container">
+                <!-- JSで科目チップを生成 -->
+              </div>
+            </div>
+          </div>
+
           <div class="card">
             <div class="card-header">
               <h3>💾 データ管理 &amp; バックアップ</h3>
@@ -479,6 +544,24 @@
         </div>
       </div>
     </div>
+
+    <!-- モーダル 3: 共通確認ダイアログ (Tauri/WebView対応) -->
+    <div id="confirm-modal" class="modal-backdrop" style="display: none;">
+      <div class="modal-card confirm-modal-card">
+        <div class="confirm-modal-icon-wrap" id="confirm-modal-icon-wrap">
+          <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        </div>
+        <h3 id="confirm-modal-title">確認</h3>
+        <p id="confirm-modal-message">本当に実行しますか？</p>
+        <div class="modal-actions confirm-modal-actions">
+          <button class="btn btn-secondary" id="confirm-modal-btn-cancel">キャンセル</button>
+          <button class="btn btn-danger" id="confirm-modal-btn-confirm">破棄する</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- トースト通知 -->
+    <div id="app-toast" class="app-toast"></div>
 
     <script type="module" src="./src/app.js"></script>
   </body>

@@ -5,12 +5,36 @@ const STORAGE_KEYS = {
   TODOS: "studyflow_todos",
   SESSIONS: "studyflow_sessions",
   THEME: "studyflow_theme",
+  SUBJECTS: "studyflow_subjects",
 };
+
+const DEFAULT_SUBJECTS = [
+  { name: "英語", color: "#3b82f6" },
+  { name: "数学", color: "#ef4444" },
+  { name: "現代文", color: "#10b981" },
+  { name: "古文・漢文", color: "#059669" },
+  { name: "物理", color: "#8b5cf6" },
+  { name: "化学", color: "#ec4899" },
+  { name: "生物", color: "#14b8a6" },
+  { name: "地学", color: "#f59e0b" },
+  { name: "日本史", color: "#d97706" },
+  { name: "世界史", color: "#b45309" },
+  { name: "地理", color: "#06b6d4" },
+  { name: "公共・政経・倫理", color: "#6366f1" },
+  { name: "情報", color: "#0ea5e9" },
+  { name: "過去問・演習", color: "#f97316" },
+  { name: "模試・復習", color: "#a855f7" },
+  { name: "その他自習", color: "#64748b" },
+];
 
 let todos = [];
 let sessions = [];
+let subjects = [];
 let activeTab = "tracker";
 let currentTheme = "auto"; // 'auto' | 'dark' | 'light'
+
+// Confirm Modal Callback
+let confirmModalCallback = null;
 
 // Timer State
 let timerMode = "countup"; // 'countup' | 'pomodoro'
@@ -56,6 +80,51 @@ function formatHoursMinutes(seconds) {
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
+}
+
+// --- Custom Modal Dialog & Toast (Tauri/WebView Safe) ---
+function showConfirmModal({ title, message, confirmText, confirmClass, onConfirm }) {
+  const modal = document.getElementById("confirm-modal");
+  const titleEl = document.getElementById("confirm-modal-title");
+  const msgEl = document.getElementById("confirm-modal-message");
+  const confirmBtn = document.getElementById("confirm-modal-btn-confirm");
+
+  if (!modal) {
+    if (onConfirm) onConfirm();
+    return;
+  }
+
+  if (titleEl) titleEl.textContent = title || "確認";
+  if (msgEl) msgEl.textContent = message || "本当に実行しますか？";
+  if (confirmBtn) {
+    confirmBtn.textContent = confirmText || "実行する";
+    confirmBtn.className = `btn ${confirmClass || "btn-danger"}`;
+  }
+
+  confirmModalCallback = onConfirm || null;
+  modal.style.display = "flex";
+}
+
+function closeConfirmModal() {
+  const modal = document.getElementById("confirm-modal");
+  if (modal) modal.style.display = "none";
+  confirmModalCallback = null;
+}
+
+function showToast(message) {
+  let toast = document.getElementById("app-toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "app-toast";
+    toast.className = "app-toast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.classList.add("show");
+  clearTimeout(toast.timeoutId);
+  toast.timeoutId = setTimeout(() => {
+    toast.classList.remove("show");
+  }, 2500);
 }
 
 // --- Theme Management ---
@@ -110,10 +179,18 @@ function loadData() {
 
     const rawSessions = localStorage.getItem(STORAGE_KEYS.SESSIONS);
     sessions = rawSessions ? JSON.parse(rawSessions) : [];
+
+    const rawSubjects = localStorage.getItem(STORAGE_KEYS.SUBJECTS);
+    if (rawSubjects) {
+      subjects = JSON.parse(rawSubjects);
+    } else {
+      subjects = JSON.parse(JSON.stringify(DEFAULT_SUBJECTS));
+    }
   } catch (e) {
     console.error("Failed to parse localStorage data", e);
     todos = [];
     sessions = [];
+    subjects = JSON.parse(JSON.stringify(DEFAULT_SUBJECTS));
   }
 }
 
@@ -123,6 +200,125 @@ function saveData() {
   updateAllViews();
 }
 
+function saveSubjects() {
+  localStorage.setItem(STORAGE_KEYS.SUBJECTS, JSON.stringify(subjects));
+  renderSubjectSelects();
+  renderSubjectManageList();
+  updateAllViews();
+}
+
+// --- Subject Management ---
+function addSubject(name, color) {
+  const trimmed = name.trim();
+  if (!trimmed) return false;
+  if (subjects.some((s) => s.name.toLowerCase() === trimmed.toLowerCase())) {
+    showToast(`「${trimmed}」は既に登録されています`);
+    return false;
+  }
+  subjects.push({
+    name: trimmed,
+    color: color || "#6366f1",
+  });
+  saveSubjects();
+  showToast(`科目「${trimmed}」を追加しました！`);
+  return true;
+}
+
+function deleteSubject(name) {
+  showConfirmModal({
+    title: "科目の削除",
+    message: `「${name}」を科目一覧から削除しますか？\n（※過去に記録した学習ログやTODOのデータは保持されます）`,
+    confirmText: "削除する",
+    confirmClass: "btn-danger",
+    onConfirm: () => {
+      subjects = subjects.filter((s) => s.name !== name);
+      saveSubjects();
+      showToast(`科目「${name}」を削除しました`);
+    },
+  });
+}
+
+function resetSubjects() {
+  showConfirmModal({
+    title: "科目の初期化",
+    message: "科目一覧を初期の標準セットに戻しますか？\n（※追加したカスタム科目は削除されます）",
+    confirmText: "初期状態に戻す",
+    confirmClass: "btn-secondary",
+    onConfirm: () => {
+      subjects = JSON.parse(JSON.stringify(DEFAULT_SUBJECTS));
+      saveSubjects();
+      showToast("科目一覧を初期状態に戻しました");
+    },
+  });
+}
+
+function renderSubjectSelects() {
+  const selectConfigs = [
+    { id: "timer-subject" },
+    { id: "todo-input-subject" },
+    { id: "modal-subject" },
+    { id: "edit-session-subject" },
+  ];
+
+  selectConfigs.forEach(({ id }) => {
+    const select = document.getElementById(id);
+    if (!select) return;
+
+    const currentVal = select.value;
+    select.innerHTML = subjects
+      .map((s) => `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`)
+      .join("");
+
+    if (currentVal && subjects.some((s) => s.name === currentVal)) {
+      select.value = currentVal;
+    } else if (subjects.length > 0) {
+      select.value = subjects[0].name;
+    }
+  });
+
+  const timerSub = document.getElementById("timer-subject");
+  const targetDisplay = document.getElementById("timer-target-display");
+  if (timerSub && targetDisplay) {
+    targetDisplay.textContent = `科目: ${timerSub.value || "未選択"}`;
+  }
+}
+
+function renderSubjectManageList() {
+  const container = document.getElementById("subject-chips-container");
+  const countBadge = document.getElementById("subject-count-badge");
+  if (!container) return;
+
+  if (countBadge) {
+    countBadge.textContent = `${subjects.length} 科目登録中`;
+  }
+
+  if (subjects.length === 0) {
+    container.innerHTML = `<div class="empty-hint">登録されている科目がありません。「科目を追加」から登録してください。</div>`;
+    return;
+  }
+
+  container.innerHTML = subjects
+    .map(
+      (s) => `
+    <div class="subject-chip-item">
+      <span class="subject-chip-color" style="background-color: ${s.color};"></span>
+      <span class="subject-chip-name">${escapeHtml(s.name)}</span>
+      <button type="button" class="subject-chip-del btn-delete-subject" data-name="${escapeHtml(s.name)}" title="「${escapeHtml(s.name)}」を削除">
+        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+  `
+    )
+    .join("");
+
+  container.querySelectorAll(".btn-delete-subject").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const name = btn.getAttribute("data-name");
+      if (name) deleteSubject(name);
+    });
+  });
+}
+
 // --- View Updates ---
 function updateAllViews() {
   updateHeaderAndSummary();
@@ -130,6 +326,7 @@ function updateAllViews() {
   renderTodaySessions();
   updateTodoLinkOptions();
   renderHistoryView();
+  renderSubjectManageList();
 }
 
 function updateHeaderAndSummary() {
@@ -196,7 +393,7 @@ function renderTodoList() {
       <div class="todo-content">
         <div class="todo-title">${escapeHtml(todo.title)}</div>
         <div class="todo-meta">
-          <span class="todo-subject-badge">${escapeHtml(todo.subject || "その他自習")}</span>
+          <span class="todo-subject-badge" style="background-color: ${getSubjectColor(todo.subject)}20; color: ${getSubjectColor(todo.subject)}; border: 1px solid ${getSubjectColor(todo.subject)}40;">${escapeHtml(todo.subject || "その他自習")}</span>
           ${todo.estimatedMinutes ? `<span>目安: ${todo.estimatedMinutes}分</span>` : ""}
           ${todo.memo ? `<span>メモ: ${escapeHtml(todo.memo)}</span>` : ""}
         </div>
@@ -500,10 +697,17 @@ function saveEditedSession() {
 }
 
 function deleteSession(sessionId) {
-  if (confirm("この学習記録を破棄（削除）しますか？")) {
-    sessions = sessions.filter((s) => s.id !== sessionId);
-    saveData();
-  }
+  showConfirmModal({
+    title: "学習記録の破棄",
+    message: "この学習記録を破棄（削除）しますか？\n合計学習時間や達成率にも即時反映されます。",
+    confirmText: "破棄する",
+    confirmClass: "btn-danger",
+    onConfirm: () => {
+      sessions = sessions.filter((s) => s.id !== sessionId);
+      saveData();
+      showToast("学習記録を破棄しました");
+    },
+  });
 }
 
 // --- Render Today Sessions (編集・破棄ボタン付き) ---
@@ -524,7 +728,7 @@ function renderTodaySessions() {
       (s) => `
     <div class="session-item-compact" data-id="${s.id}">
       <div class="session-left">
-        <span class="session-badge">${escapeHtml(s.subject)}</span>
+        <span class="session-badge" style="background-color: ${getSubjectColor(s.subject)}25; color: ${getSubjectColor(s.subject)}; border: 1px solid ${getSubjectColor(s.subject)}50;">${escapeHtml(s.subject)}</span>
         <span style="color: var(--text-muted); font-size: 0.75rem;">${s.startTime || ""} - ${s.endTime || ""}</span>
         ${s.memo ? `<span class="session-memo-preview" title="${escapeHtml(s.memo)}">💭 ${escapeHtml(s.memo)}</span>` : ""}
       </div>
@@ -581,7 +785,16 @@ const SUBJECT_COLORS = {
 };
 
 function getSubjectColor(subject) {
-  return SUBJECT_COLORS[subject] || "#6366f1";
+  if (!subject) return "#64748b";
+  const found = subjects.find((s) => s.name === subject);
+  if (found && found.color) return found.color;
+  if (SUBJECT_COLORS[subject]) return SUBJECT_COLORS[subject];
+  let hash = 0;
+  for (let i = 0; i < subject.length; i++) {
+    hash = subject.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash % 360);
+  return `hsl(${hue}, 65%, 52%)`;
 }
 
 // --- All-time Statistics & Subject Totals ---
@@ -737,7 +950,7 @@ function renderHistoryView() {
           return `
           <tr>
             <td>${s.startTime || "-"} ~ ${s.endTime || "-"}</td>
-            <td><span class="session-badge">${escapeHtml(s.subject)}</span></td>
+            <td><span class="session-badge" style="background-color: ${getSubjectColor(s.subject)}25; color: ${getSubjectColor(s.subject)}; border: 1px solid ${getSubjectColor(s.subject)}50;">${escapeHtml(s.subject)}</span></td>
             <td>${linkedTodo ? escapeHtml(linkedTodo.title) : (s.memo ? escapeHtml(s.memo) : "-")}</td>
             <td><strong>${formatHoursMinutes(s.durationSeconds)}</strong></td>
             <td>
@@ -783,7 +996,7 @@ function renderHistoryView() {
           <div class="todo-content">
             <div class="todo-title">${escapeHtml(t.title)}</div>
             <div class="todo-meta">
-              <span class="todo-subject-badge">${escapeHtml(t.subject || "その他自習")}</span>
+              <span class="todo-subject-badge" style="background-color: ${getSubjectColor(t.subject)}20; color: ${getSubjectColor(t.subject)}; border: 1px solid ${getSubjectColor(t.subject)}40;">${escapeHtml(t.subject || "その他自習")}</span>
               ${t.completed ? `<span style="color: var(--success)">✓ 達成</span>` : `<span>未完了</span>`}
             </div>
           </div>
@@ -835,16 +1048,23 @@ function switchTab(tabName) {
 
   if (tabName === "history") {
     renderHistoryView();
+  } else if (tabName === "settings") {
+    renderSubjectManageList();
+  } else if (tabName === "tracker") {
+    renderTodaySessions();
+    updateHeaderAndSummary();
   }
 }
 
 // --- Export & Import & Backup ---
 function exportDataAsJSON() {
   const payload = {
-    version: "1.0",
+    appName: "StudyFlow",
+    version: "1.1",
     exportDate: new Date().toISOString(),
     todos,
     sessions,
+    subjects,
   };
 
   const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
@@ -854,6 +1074,7 @@ function exportDataAsJSON() {
   document.body.appendChild(downloadAnchor);
   downloadAnchor.click();
   downloadAnchor.remove();
+  showToast("バックアップJSONをエクスポートしました");
 }
 
 function importDataFromJSON(file) {
@@ -864,13 +1085,18 @@ function importDataFromJSON(file) {
       if (Array.isArray(data.todos) && Array.isArray(data.sessions)) {
         todos = data.todos;
         sessions = data.sessions;
-        saveData();
-        alert("データの読み込みが完了しました！");
+        if (Array.isArray(data.subjects) && data.subjects.length > 0) {
+          subjects = data.subjects;
+          saveSubjects();
+        } else {
+          saveData();
+        }
+        showToast("データの読み込み・復元が完了しました！");
       } else {
-        alert("無効なバックアップファイル形式です。");
+        showToast("無効なバックアップファイル形式です");
       }
     } catch (err) {
-      alert("JSONファイルの解析に失敗しました: " + err.message);
+      showToast("JSONファイルの解析に失敗しました: " + err.message);
     }
   };
   reader.readAsText(file);
@@ -936,16 +1162,22 @@ function loadSampleDemoData() {
   todos = sampleTodos;
   sessions = sampleSessions;
   saveData();
-  alert("受験生向けのサンプルデータを投入しました！「過去のデータ & 統計」タブでグラフをご確認いただけます。");
+  showToast("受験生向けのサンプルデータを投入しました！");
 }
 
 function clearAllData() {
-  if (confirm("本当にすべてのデータを削除しますか？この操作は取り消せません。")) {
-    todos = [];
-    sessions = [];
-    saveData();
-    alert("すべてのデータを初期化しました。");
-  }
+  showConfirmModal({
+    title: "全データの初期化",
+    message: "本当にすべてのTODOおよび学習ログを削除しますか？\nこの操作は取り消せません。",
+    confirmText: "すべて消去",
+    confirmClass: "btn-danger",
+    onConfirm: () => {
+      todos = [];
+      sessions = [];
+      saveData();
+      showToast("すべてのデータを初期化しました");
+    },
+  });
 }
 
 function escapeHtml(str) {
@@ -962,6 +1194,7 @@ function escapeHtml(str) {
 document.addEventListener("DOMContentLoaded", () => {
   initTheme();
   loadData();
+  renderSubjectSelects();
   updateAllViews();
   resetTimer();
 
@@ -973,6 +1206,60 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.addEventListener("click", () => {
       switchTab(btn.getAttribute("data-tab"));
     });
+  });
+
+  // Subject Management Controls
+  const subjectForm = document.getElementById("subject-form");
+  const subjectNameInput = document.getElementById("subject-input-name");
+  const subjectColorInput = document.getElementById("subject-input-color");
+  const subjectHexLabel = document.getElementById("subject-color-hex");
+
+  subjectColorInput?.addEventListener("input", (e) => {
+    const val = e.target.value;
+    if (subjectHexLabel) subjectHexLabel.textContent = val;
+    document.querySelectorAll(".color-dot-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.getAttribute("data-color") === val);
+    });
+  });
+
+  document.querySelectorAll(".color-dot-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const color = btn.getAttribute("data-color");
+      if (color && subjectColorInput) {
+        subjectColorInput.value = color;
+        if (subjectHexLabel) subjectHexLabel.textContent = color;
+        document.querySelectorAll(".color-dot-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+      }
+    });
+  });
+
+  subjectForm?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (subjectNameInput && subjectNameInput.value.trim()) {
+      const added = addSubject(subjectNameInput.value.trim(), subjectColorInput?.value || "#6366f1");
+      if (added) {
+        subjectNameInput.value = "";
+      }
+    }
+  });
+
+  document.getElementById("btn-reset-subjects")?.addEventListener("click", resetSubjects);
+
+  // Confirm Modal controls
+  document.getElementById("confirm-modal-btn-cancel")?.addEventListener("click", closeConfirmModal);
+  document.getElementById("confirm-modal-btn-confirm")?.addEventListener("click", () => {
+    if (confirmModalCallback) {
+      confirmModalCallback();
+    }
+    closeConfirmModal();
+  });
+
+  // Close confirm modal when clicking backdrop
+  document.getElementById("confirm-modal")?.addEventListener("click", (e) => {
+    if (e.target.id === "confirm-modal") {
+      closeConfirmModal();
+    }
   });
 
   // Timer controls
@@ -994,7 +1281,7 @@ document.addEventListener("DOMContentLoaded", () => {
     resetTimer();
   });
 
-  // Subject change
+  // Subject change in timer
   document.getElementById("timer-subject")?.addEventListener("change", (e) => {
     const targetDisplay = document.getElementById("timer-target-display");
     if (targetDisplay) targetDisplay.textContent = `科目: ${e.target.value}`;
