@@ -12,13 +12,16 @@
 
 ---
 
-## 🚀 アプリのダウンロード &amp; インストール手順
+## 🚀 アプリのダウンロード & インストール手順
 
 ### 📥 1. アプリのダウンロード
-1. 本リポジトリの **[Actions](../../actions)** の最新ビルド結果（ページ最下部の **Artifacts**）を開きます。
-2. お使いの OS に合わせたファイルをダウンロードします：
-   - 🍎 **macOS (Intel &amp; M1/M2/M3/M4両対応)**: `study-flow-macos-universal.zip`
-   - 🪟 **Windows**: `study-flow-windows.zip`
+本リポジトリの **[Releases ページ](https://github.com/tyama11/StudyFlow/releases/latest)** から、お使いの OS に合わせた最新バイナリを直接ダウンロードできます：
+
+- 🍎 **macOS (Intel & Apple Silicon M1〜M4 両対応)**:
+  - **[study-flow_1.0.0_universal.dmg](https://github.com/tyama11/StudyFlow/releases/download/v1.0.0/study-flow_1.0.0_universal.dmg)**
+- 🪟 **Windows (64-bit)**:
+  - **[study-flow_1.0.0_x64-setup.exe](https://github.com/tyama11/StudyFlow/releases/download/v1.0.0/study-flow_1.0.0_x64-setup.exe)** （インストーラー）
+  - **[study-flow_1.0.0_x64_en-US.msi](https://github.com/tyama11/StudyFlow/releases/download/v1.0.0/study-flow_1.0.0_x64_en-US.msi)** （MSI）
 
 ---
 
@@ -62,13 +65,17 @@
 - タスク名、受験科目、予定目安時間、メモを設定して追加。
 - チェックを入れると打ち消し線が引かれ、完了状態として一覧に分かりやすく残ります。
 
-### 5. 📅 過去データの読み出し &amp; カレンダー振り返り
+### 5. 📅 過去データの読み出し & カレンダー振り返り
 - カレンダーから過去の日付を選ぶだけで、その日の総学習時間、完了TODO数、タイムライン履歴を瞬時に読み出して振り返ることができます。
 
-### 6. 📊 統計グラフ（週間学習推移）
+### 6. 🏆 全期間の累計実績 & 分野別学習時間
+- **累計サマリー**: これまでの全学習時間、累計セッション数、達成タスク数、総学習日数を一目で確認。
+- **分野・科目別累計**: 各科目に費やした総時間、全体に占める割合（%）をカラー付きプログレスバーで可視化。最多学習分野も自動算出。
+
+### 7. 📊 統計グラフ（週間学習推移）
 - 直近7日間の学習時間の推移を美しい棒グラフで自動可視化。
 
-### 7. 💾 データ管理 &amp; バックアップ
+### 8. 💾 データ管理 & バックアップ
 - **JSON エクスポート / インポート**: 全てのデータを1クリックでバックアップ・復元可能。PC買い替え時も安心です。
 
 ---
