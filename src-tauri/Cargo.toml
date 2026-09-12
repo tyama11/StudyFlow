@@ -1,7 +1,7 @@
 [package]
-name = "study-todo-app"
+name = "studyflow"
 version = "1.3.0"
-description = "Study & TODO Tracker Desktop App"
+description = "StudyFlow - Study & TODO Tracker Desktop App"
 authors = ["User"]
 edition = "2021"
 

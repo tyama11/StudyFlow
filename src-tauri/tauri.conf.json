@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "study-flow",
+  "productName": "StudyFlow",
   "version": "1.3.0",
   "identifier": "com.studyflow.tracker",
   "build": {
