@@ -2,10 +2,9 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>StudyFlow - 学習時間記録 &amp; TODOアプリ</title>
-    <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./src/style.css" />
   </head>
   <body>
     <div id="app" class="app-layout">
@@ -128,7 +127,6 @@
               <div class="recent-sessions-section">
                 <h4>本日の記録一覧</h4>
                 <div class="session-list-compact" id="today-session-list">
-                  <!-- JSで動的生成 -->
                   <div class="empty-hint">まだ今日の記録はありません。Startボタンで計測を開始してください。</div>
                 </div>
               </div>
@@ -210,7 +208,7 @@
             </div>
           </div>
 
-          <!-- 過去データの詳細（TODO一覧 & 時間記録一覧） -->
+          <!-- 過去データの詳細 -->
           <div class="dashboard-grid">
             <!-- 選択日の記録セッション一覧 -->
             <div class="card">
@@ -257,7 +255,7 @@
           </div>
         </section>
 
-        <!-- TAB 3: データ管理 (インポート/エクスポート/初期化) -->
+        <!-- TAB 3: データ管理 -->
         <section id="tab-settings" class="tab-pane">
           <div class="card">
             <div class="card-header">
@@ -343,6 +341,6 @@
     </div>
 
     <!-- スクリプト -->
-    <script type="module" src="./app.js"></script>
+    <script type="module" src="./src/app.js"></script>
   </body>
 </html>
