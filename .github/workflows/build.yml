@@ -1,4 +1,4 @@
-name: "Build App (macOS Universal Artifact)"
+name: "Build App (macOS & Windows Artifacts)"
 
 on:
   push:
@@ -9,7 +9,30 @@ on:
 
 jobs:
   build-tauri:
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "macos-latest"
+            name: "macOS"
+            args: "--target universal-apple-darwin"
+            targets: "aarch64-apple-darwin,x86_64-apple-darwin"
+            artifact-name: "study-flow-macos-universal"
+            artifact-path: |
+              src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+              src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app
+              src-tauri/target/release/bundle/dmg/*.dmg
+              src-tauri/target/release/bundle/macos/*.app
+          - platform: "windows-latest"
+            name: "Windows"
+            args: ""
+            targets: ""
+            artifact-name: "study-flow-windows"
+            artifact-path: |
+              src-tauri/target/release/bundle/nsis/*.exe
+              src-tauri/target/release/bundle/msi/*.msi
+
+    runs-on: ${{ matrix.platform }}
 
     steps:
       - name: Checkout repository
@@ -23,7 +46,7 @@ jobs:
       - name: Setup Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          targets: ${{ matrix.targets }}
 
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
@@ -33,7 +56,7 @@ jobs:
       - name: Install Frontend dependencies
         run: npm install
 
-      # Tauri CLIでmacOS Universalバイナリ（Intel Mac & Apple Silicon両対応）をビルド
+      # Tauri CLIでビルドを実行 (macOSはUniversal、WindowsはインストーラーEXE/MSI)
       - name: Build Tauri App
         uses: tauri-apps/tauri-action@v0
         env:
@@ -42,16 +65,12 @@ jobs:
           tagName: ""
           releaseDraft: false
           prerelease: false
-          args: --target universal-apple-darwin
+          args: ${{ matrix.args }}
 
-      # 生成されたmacOS Universal用（.dmg / .app）をアーティファクトとして保存
-      - name: Upload macOS Universal Artifacts
+      # 生成された成果物をアーティファクトとして保存
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: study-flow-macos-universal
-          path: |
-            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
-            src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app
-            src-tauri/target/release/bundle/dmg/*.dmg
-            src-tauri/target/release/bundle/macos/*.app
+          name: ${{ matrix.artifact-name }}
+          path: ${{ matrix.artifact-path }}
           if-no-files-found: warn

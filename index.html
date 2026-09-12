@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>StudyFlow - 受験生のための学習時間記録 &amp; TODOアプリ</title>
+    <title>StudyFlow - 学習時間記録 &amp; TODOアプリ</title>
     <link rel="stylesheet" href="./src/style.css" />
   </head>
   <body>
@@ -13,12 +13,13 @@
         <div class="brand">
           <div class="logo-icon">
             <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none">
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
             </svg>
           </div>
           <div class="brand-text">
             <h2>StudyFlow</h2>
-            <span class="brand-sub">受験生サポート</span>
+            <span class="brand-sub">受験・学習サポーター</span>
           </div>
         </div>
 
@@ -36,6 +37,14 @@
             <span>データ管理</span>
           </button>
         </nav>
+
+        <!-- テーマ切り替え -->
+        <div class="theme-switcher-wrap">
+          <button id="btn-theme-toggle" class="theme-toggle-btn" title="テーマ切り替え (OS連動 / ダーク / ライト)">
+            <span id="theme-toggle-icon">🌓</span>
+            <span id="theme-toggle-text">OS連動</span>
+          </button>
+        </div>
       </aside>
 
       <!-- メインコンテンツ -->
@@ -44,7 +53,7 @@
         <header class="top-header">
           <div class="date-display">
             <h1 id="header-date-title">今日の日付</h1>
-            <span id="header-date-sub" class="subtitle">志望校合格・目標達成に向けて今日も積み上げましょう！</span>
+            <span id="header-date-sub" class="subtitle">今日も目標に向かって一歩ずつ進みましょう！</span>
           </div>
           <div class="header-status">
             <span class="status-chip" id="timer-status-chip">
@@ -57,7 +66,7 @@
         <!-- TAB 1: 今日の学習＆タイマー & TODO -->
         <section id="tab-tracker" class="tab-pane active">
           
-          <!-- 本日の学習サマリーバナー（タブの内側上部に配置） -->
+          <!-- 本日の学習サマリーバナー（タブ内側上部） -->
           <div class="today-summary-banner card">
             <div class="summary-metric">
               <span class="metric-icon">⏱️</span>
@@ -105,7 +114,7 @@
                 </div>
               </div>
 
-              <!-- タイマー対象選択（受験生向け科目） -->
+              <!-- タイマー対象選択 -->
               <div class="timer-controls-row select-row">
                 <div class="form-group flex-1">
                   <label for="timer-subject">科目 / 受験分野</label>
@@ -152,9 +161,12 @@
                 </button>
               </div>
 
-              <!-- 今日のセッションミニログ -->
+              <!-- 今日のセッション一覧（編集・破棄可能） -->
               <div class="recent-sessions-section">
-                <h4>本日の記録一覧</h4>
+                <div class="sessions-header-row">
+                  <h4>本日の記録一覧</h4>
+                  <span class="sessions-sub-hint">✏️ 編集 / 🗑️ 破棄が可能</span>
+                </div>
                 <div class="session-list-compact" id="today-session-list">
                   <div class="empty-hint">まだ今日の記録はありません。Startボタンで計測を開始してください。</div>
                 </div>
@@ -200,7 +212,7 @@
                 </div>
               </form>
 
-              <!-- TODOアイテム一覧（未完了・完了をまとめて一覧表示） -->
+              <!-- TODOアイテム一覧 -->
               <div class="todo-list-container" id="todo-list-container">
                 <!-- JSで動的生成 -->
               </div>
@@ -243,7 +255,6 @@
 
           <!-- 過去データの詳細 -->
           <div class="dashboard-grid">
-            <!-- 選択日の記録セッション一覧 -->
             <div class="card">
               <div class="card-header">
                 <h3>⏱️ 選択日の学習セッション記録</h3>
@@ -266,7 +277,6 @@
               </div>
             </div>
 
-            <!-- 選択日のTODO実績 -->
             <div class="card">
               <div class="card-header">
                 <h3>📝 選択日のTODOリスト &amp; 実績</h3>
@@ -347,7 +357,7 @@
       </main>
     </div>
 
-    <!-- モーダル: 記録完了ダイアログ -->
+    <!-- モーダル 1: 記録完了ダイアログ -->
     <div id="record-modal" class="modal-backdrop" style="display: none;">
       <div class="modal-card">
         <h3>🎉 学習お疲れ様でした！</h3>
@@ -359,16 +369,77 @@
           </div>
           <div class="form-group">
             <label for="modal-subject">科目:</label>
-            <input type="text" id="modal-subject" class="text-input" readonly />
+            <select id="modal-subject" class="select-input">
+              <option value="英語">英語</option>
+              <option value="数学">数学</option>
+              <option value="現代文">現代文</option>
+              <option value="古文・漢文">古文・漢文</option>
+              <option value="物理">物理</option>
+              <option value="化学">化学</option>
+              <option value="生物">生物</option>
+              <option value="地学">地学</option>
+              <option value="日本史">日本史</option>
+              <option value="世界史">世界史</option>
+              <option value="地理">地理</option>
+              <option value="公共・政経・倫理">公共・政経・倫理</option>
+              <option value="情報">情報</option>
+              <option value="過去問・演習">過去問・演習</option>
+              <option value="模試・復習">模試・復習</option>
+              <option value="その他自習">その他自習</option>
+            </select>
           </div>
           <div class="form-group">
             <label for="modal-memo">メモ (演習範囲や間違えた問題など):</label>
-            <textarea id="modal-memo" class="textarea-input" placeholder="例: 共通テスト過去問 2024本試 第2問。対数関数の計算ミスを要復習。"></textarea>
+            <textarea id="modal-memo" class="textarea-input" placeholder="例: 共通テスト過去問 2024本試 第2問。"></textarea>
           </div>
         </div>
         <div class="modal-actions">
           <button class="btn btn-secondary" id="modal-btn-cancel">破棄する</button>
           <button class="btn btn-primary" id="modal-btn-save">保存する</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- モーダル 2: 記録の編集ダイアログ -->
+    <div id="edit-session-modal" class="modal-backdrop" style="display: none;">
+      <div class="modal-card">
+        <h3>✏️ 学習記録の編集</h3>
+        <p>記録済みの科目や学習時間、メモを修正できます。</p>
+        <input type="hidden" id="edit-session-id" />
+        <div class="modal-form">
+          <div class="form-group">
+            <label for="edit-session-subject">科目 / 分野:</label>
+            <select id="edit-session-subject" class="select-input">
+              <option value="英語">英語</option>
+              <option value="数学">数学</option>
+              <option value="現代文">現代文</option>
+              <option value="古文・漢文">古文・漢文</option>
+              <option value="物理">物理</option>
+              <option value="化学">化学</option>
+              <option value="生物">生物</option>
+              <option value="地学">地学</option>
+              <option value="日本史">日本史</option>
+              <option value="世界史">世界史</option>
+              <option value="地理">地理</option>
+              <option value="公共・政経・倫理">公共・政経・倫理</option>
+              <option value="情報">情報</option>
+              <option value="過去問・演習">過去問・演習</option>
+              <option value="模試・復習">模試・復習</option>
+              <option value="その他自習">その他自習</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="edit-session-minutes">学習時間 (分単位):</label>
+            <input type="number" id="edit-session-minutes" class="text-input" min="1" step="1" required />
+          </div>
+          <div class="form-group">
+            <label for="edit-session-memo">メモ:</label>
+            <textarea id="edit-session-memo" class="textarea-input" placeholder="メモを入力..."></textarea>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="edit-session-btn-cancel">キャンセル</button>
+          <button class="btn btn-primary" id="edit-session-btn-save">更新を保存</button>
         </div>
       </div>
     </div>

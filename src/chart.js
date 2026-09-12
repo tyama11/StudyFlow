@@ -6,7 +6,6 @@ export function renderWeeklyChart(canvasId, dailyData) {
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
 
-  // Set physical display size vs pixel buffer size
   const displayWidth = canvas.parentElement.clientWidth || 700;
   const displayHeight = 220;
   canvas.width = displayWidth * dpr;
@@ -17,17 +16,24 @@ export function renderWeeklyChart(canvasId, dailyData) {
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, displayWidth, displayHeight);
 
+  // Check current theme
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  const isLight = currentTheme === 'light' || (!currentTheme && window.matchMedia('(prefers-color-scheme: light)').matches);
+
+  const gridColor = isLight ? '#e2e8f0' : '#334155';
+  const textColor = isLight ? '#64748b' : '#94a3b8';
+  const valueColor = isLight ? '#0f172a' : '#f8fafc';
+
   const padding = { top: 30, right: 30, bottom: 40, left: 50 };
   const graphWidth = displayWidth - padding.left - padding.right;
   const graphHeight = displayHeight - padding.top - padding.bottom;
 
-  // dailyData is array of { date: 'YYYY-MM-DD', label: '9/12(土)', minutes: 120 }
   const maxMinutes = Math.max(60, ...dailyData.map(d => d.minutes));
-  const ceilMax = Math.ceil(maxMinutes / 60) * 60; // round up to hours
+  const ceilMax = Math.ceil(maxMinutes / 60) * 60;
 
   // Draw Grid lines & Y-axis labels
-  ctx.strokeStyle = '#334155';
-  ctx.fillStyle = '#94a3b8';
+  ctx.strokeStyle = gridColor;
+  ctx.fillStyle = textColor;
   ctx.font = '11px sans-serif';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
@@ -60,12 +66,10 @@ export function renderWeeklyChart(canvasId, dailyData) {
     const yTop = padding.top + graphHeight - barH;
     const xLeft = xCenter - barWidth / 2;
 
-    // Gradient for bars
     const grad = ctx.createLinearGradient(0, yTop, 0, padding.top + graphHeight);
     grad.addColorStop(0, '#818cf8');
     grad.addColorStop(1, '#4f46e5');
 
-    // Rounded rectangle bar
     const radius = 6;
     ctx.fillStyle = grad;
     ctx.beginPath();
@@ -76,9 +80,8 @@ export function renderWeeklyChart(canvasId, dailyData) {
     }
     ctx.fill();
 
-    // Value on top of bar if > 0
     if (item.minutes > 0) {
-      ctx.fillStyle = '#f8fafc';
+      ctx.fillStyle = valueColor;
       ctx.textAlign = 'center';
       ctx.font = '10px ui-monospace, monospace';
       const m = Math.floor(item.minutes % 60);
@@ -87,8 +90,7 @@ export function renderWeeklyChart(canvasId, dailyData) {
       ctx.fillText(text, xCenter, yTop - 8);
     }
 
-    // X-axis date label
-    ctx.fillStyle = '#94a3b8';
+    ctx.fillStyle = textColor;
     ctx.textAlign = 'center';
     ctx.font = '11px sans-serif';
     ctx.fillText(item.label, xCenter, displayHeight - padding.bottom + 18);

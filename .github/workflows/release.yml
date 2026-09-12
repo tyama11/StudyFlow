@@ -1,4 +1,4 @@
-name: "Release App (macOS Release)"
+name: "Release App (GitHub Releases)"
 
 on:
   push:
@@ -10,7 +10,18 @@ jobs:
   release-tauri:
     permissions:
       contents: write
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "macos-latest"
+            args: "--target universal-apple-darwin"
+            targets: "aarch64-apple-darwin,x86_64-apple-darwin"
+          - platform: "windows-latest"
+            args: ""
+            targets: ""
+
+    runs-on: ${{ matrix.platform }}
 
     steps:
       - name: Checkout repository
@@ -24,7 +35,7 @@ jobs:
       - name: Setup Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          targets: ${{ matrix.targets }}
 
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
@@ -40,8 +51,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "StudyFlow macOS Universal ${{ github.ref_name }}"
-          releaseBody: "StudyFlow macOS Universal（Intel & Apple Silicon両対応）リリース。"
+          releaseName: "StudyFlow ${{ github.ref_name }}"
+          releaseBody: "StudyFlow リリース。macOS（.dmg）および Windows（.exe / .msi）をダウンロードしてご利用ください。"
           releaseDraft: false
           prerelease: false
-          args: "--target universal-apple-darwin"
+          args: ${{ matrix.args }}

@@ -4,11 +4,13 @@ import { renderWeeklyChart } from "./chart.js";
 const STORAGE_KEYS = {
   TODOS: "studyflow_todos",
   SESSIONS: "studyflow_sessions",
+  THEME: "studyflow_theme",
 };
 
 let todos = [];
 let sessions = [];
 let activeTab = "tracker";
+let currentTheme = "auto"; // 'auto' | 'dark' | 'light'
 
 // Timer State
 let timerMode = "countup"; // 'countup' | 'pomodoro'
@@ -54,6 +56,50 @@ function formatHoursMinutes(seconds) {
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
+}
+
+// --- Theme Management ---
+function initTheme() {
+  currentTheme = localStorage.getItem(STORAGE_KEYS.THEME) || "auto";
+  applyTheme(currentTheme);
+}
+
+function applyTheme(theme) {
+  currentTheme = theme;
+  localStorage.setItem(STORAGE_KEYS.THEME, theme);
+
+  const iconEl = document.getElementById("theme-toggle-icon");
+  const textEl = document.getElementById("theme-toggle-text");
+
+  if (theme === "dark") {
+    document.documentElement.setAttribute("data-theme", "dark");
+    if (iconEl) iconEl.textContent = "🌙";
+    if (textEl) textEl.textContent = "ダーク";
+  } else if (theme === "light") {
+    document.documentElement.setAttribute("data-theme", "light");
+    if (iconEl) iconEl.textContent = "☀️";
+    if (textEl) textEl.textContent = "ライト";
+  } else {
+    // OS auto
+    document.documentElement.removeAttribute("data-theme");
+    if (iconEl) iconEl.textContent = "🌓";
+    if (textEl) textEl.textContent = "OS連動";
+  }
+
+  // Redraw chart if visible
+  if (activeTab === "history") {
+    renderWeeklyTrend();
+  }
+}
+
+function toggleTheme() {
+  if (currentTheme === "auto") {
+    applyTheme("dark");
+  } else if (currentTheme === "dark") {
+    applyTheme("light");
+  } else {
+    applyTheme("auto");
+  }
 }
 
 // --- Data Persistence ---
@@ -131,7 +177,6 @@ function renderTodoList() {
   if (!container) return;
 
   const todayStr = getTodayStr();
-  // 今日のTODOを一覧表示（未完了・完了済みを削除し、一覧のみ残す）
   const currentTodos = todos.filter((t) => !t.date || t.date === todayStr);
 
   if (currentTodos.length === 0) {
@@ -327,7 +372,6 @@ function resetTimer() {
   timerRunning = false;
   sessionStartTime = null;
 
-  // カウントアップなら 0、ポモドーロなら 25分 (1500秒)
   timerSeconds = timerMode === "pomodoro" ? 25 * 60 : 0;
   updateTimerDisplay();
 
@@ -360,9 +404,7 @@ function startTimerForTodo(todoId) {
   if (subjectSelect) subjectSelect.value = target.subject;
   if (todoSelect) todoSelect.value = target.id;
 
-  // Switch to tracker tab
   switchTab("tracker");
-
   resetTimer();
   startTimer();
 }
@@ -375,16 +417,9 @@ function openRecordModal() {
   const memoInput = document.getElementById("modal-memo");
 
   const subjectSelect = document.getElementById("timer-subject");
-  const todoSelect = document.getElementById("timer-todo-link");
-
-  let sub = subjectSelect ? subjectSelect.value : "その他自習";
-  if (todoSelect && todoSelect.value) {
-    const linked = todos.find((t) => t.id === todoSelect.value);
-    if (linked) sub = `${linked.title} (${sub})`;
-  }
 
   if (durationText) durationText.textContent = formatDuration(timerSeconds);
-  if (subjectInput) subjectInput.value = sub;
+  if (subjectInput && subjectSelect) subjectInput.value = subjectSelect.value;
   if (memoInput) memoInput.value = "";
   if (modal) modal.style.display = "flex";
 }
@@ -395,7 +430,7 @@ function closeRecordModal() {
 }
 
 function saveCurrentSession() {
-  const subjectSelect = document.getElementById("timer-subject");
+  const subjectSelect = document.getElementById("modal-subject");
   const todoSelect = document.getElementById("timer-todo-link");
   const memoInput = document.getElementById("modal-memo");
 
@@ -420,7 +455,58 @@ function saveCurrentSession() {
   resetTimer();
 }
 
-// --- History & Past Data View ---
+// --- Session Edit Modal (本日の記録の編集・破棄) ---
+function openEditSessionModal(sessionId) {
+  const session = sessions.find((s) => s.id === sessionId);
+  if (!session) return;
+
+  const modal = document.getElementById("edit-session-modal");
+  const idInput = document.getElementById("edit-session-id");
+  const subjectSelect = document.getElementById("edit-session-subject");
+  const minutesInput = document.getElementById("edit-session-minutes");
+  const memoInput = document.getElementById("edit-session-memo");
+
+  if (idInput) idInput.value = session.id;
+  if (subjectSelect) subjectSelect.value = session.subject;
+  if (minutesInput) minutesInput.value = Math.max(1, Math.round(session.durationSeconds / 60));
+  if (memoInput) memoInput.value = session.memo || "";
+
+  if (modal) modal.style.display = "flex";
+}
+
+function closeEditSessionModal() {
+  const modal = document.getElementById("edit-session-modal");
+  if (modal) modal.style.display = "none";
+}
+
+function saveEditedSession() {
+  const idInput = document.getElementById("edit-session-id");
+  const subjectSelect = document.getElementById("edit-session-subject");
+  const minutesInput = document.getElementById("edit-session-minutes");
+  const memoInput = document.getElementById("edit-session-memo");
+
+  if (!idInput || !idInput.value) return;
+
+  const target = sessions.find((s) => s.id === idInput.value);
+  if (target) {
+    target.subject = subjectSelect ? subjectSelect.value : target.subject;
+    const mins = minutesInput ? Number(minutesInput.value) : 1;
+    target.durationSeconds = Math.max(60, mins * 60);
+    target.memo = memoInput ? memoInput.value.trim() : "";
+    saveData();
+  }
+
+  closeEditSessionModal();
+}
+
+function deleteSession(sessionId) {
+  if (confirm("この学習記録を破棄（削除）しますか？")) {
+    sessions = sessions.filter((s) => s.id !== sessionId);
+    saveData();
+  }
+}
+
+// --- Render Today Sessions (編集・破棄ボタン付き) ---
 function renderTodaySessions() {
   const container = document.getElementById("today-session-list");
   if (!container) return;
@@ -436,20 +522,45 @@ function renderTodaySessions() {
   container.innerHTML = todaySessions
     .map(
       (s) => `
-    <div class="session-item-compact">
-      <div>
+    <div class="session-item-compact" data-id="${s.id}">
+      <div class="session-left">
         <span class="session-badge">${escapeHtml(s.subject)}</span>
-        <span style="color: var(--text-muted); margin-left: 0.5rem;">${s.startTime} - ${s.endTime}</span>
+        <span style="color: var(--text-muted); font-size: 0.75rem;">${s.startTime || ""} - ${s.endTime || ""}</span>
+        ${s.memo ? `<span class="session-memo-preview" title="${escapeHtml(s.memo)}">💭 ${escapeHtml(s.memo)}</span>` : ""}
       </div>
-      <div>
+      <div class="session-right">
         <strong>${formatHoursMinutes(s.durationSeconds)}</strong>
+        <button class="icon-btn edit btn-edit-session" title="編集">
+          <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+        </button>
+        <button class="icon-btn delete btn-delete-today-session" title="破棄">
+          <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        </button>
       </div>
     </div>
   `
     )
     .join("");
+
+  // Attach event handlers
+  container.querySelectorAll(".btn-edit-session").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const el = btn.closest(".session-item-compact");
+      const id = el?.getAttribute("data-id");
+      if (id) openEditSessionModal(id);
+    });
+  });
+
+  container.querySelectorAll(".btn-delete-today-session").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const el = btn.closest(".session-item-compact");
+      const id = el?.getAttribute("data-id");
+      if (id) deleteSession(id);
+    });
+  });
 }
 
+// --- History & Past Data View ---
 function renderHistoryView() {
   const dateInput = document.getElementById("history-date-picker");
   if (dateInput && dateInput.value !== selectedHistoryDate) {
@@ -507,9 +618,12 @@ function renderHistoryView() {
           <tr>
             <td>${s.startTime || "-"} ~ ${s.endTime || "-"}</td>
             <td><span class="session-badge">${escapeHtml(s.subject)}</span></td>
-            <td>${linkedTodo ? escapeHtml(linkedTodo.title) : "-"}</td>
+            <td>${linkedTodo ? escapeHtml(linkedTodo.title) : (s.memo ? escapeHtml(s.memo) : "-")}</td>
             <td><strong>${formatHoursMinutes(s.durationSeconds)}</strong></td>
             <td>
+              <button class="icon-btn edit btn-history-edit-session" data-id="${s.id}" title="編集">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+              </button>
               <button class="icon-btn delete btn-delete-session" data-id="${s.id}" title="削除">
                 <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
               </button>
@@ -519,13 +633,17 @@ function renderHistoryView() {
         })
         .join("");
 
+      tbody.querySelectorAll(".btn-history-edit-session").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const sid = btn.getAttribute("data-id");
+          if (sid) openEditSessionModal(sid);
+        });
+      });
+
       tbody.querySelectorAll(".btn-delete-session").forEach((btn) => {
         btn.addEventListener("click", () => {
           const sid = btn.getAttribute("data-id");
-          if (confirm("この記録を削除しますか？")) {
-            sessions = sessions.filter((s) => s.id !== sid);
-            saveData();
-          }
+          if (sid) deleteSession(sid);
         });
       });
     }
@@ -556,7 +674,6 @@ function renderHistoryView() {
     }
   }
 
-  // Render Weekly Chart
   renderWeeklyTrend();
 }
 
@@ -564,7 +681,6 @@ function renderWeeklyTrend() {
   const chartData = [];
   const curr = new Date(selectedHistoryDate);
 
-  // Past 7 days relative to selected date
   for (let i = 6; i >= 0; i--) {
     const d = new Date(curr);
     d.setDate(d.getDate() - i);
@@ -640,7 +756,6 @@ function importDataFromJSON(file) {
   reader.readAsText(file);
 }
 
-// 受験生向けのリアルなデモデータ
 function loadSampleDemoData() {
   const today = new Date();
   const sampleTodos = [];
@@ -685,7 +800,7 @@ function loadSampleDemoData() {
     };
     sampleTodos.push(t1, t2);
 
-    const sessionDuration = (Math.floor(Math.random() * 60) + 60) * 60; // 60~120 mins
+    const sessionDuration = (Math.floor(Math.random() * 60) + 60) * 60;
     sampleSessions.push({
       id: generateId(),
       date: dateStr,
@@ -725,9 +840,13 @@ function escapeHtml(str) {
 
 // --- Initialization & Event Listeners ---
 document.addEventListener("DOMContentLoaded", () => {
+  initTheme();
   loadData();
   updateAllViews();
   resetTimer();
+
+  // Theme toggle
+  document.getElementById("btn-theme-toggle")?.addEventListener("click", toggleTheme);
 
   // Tab navigation
   document.querySelectorAll(".nav-item").forEach((btn) => {
@@ -761,12 +880,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (targetDisplay) targetDisplay.textContent = `科目: ${e.target.value}`;
   });
 
-  // Modal controls
+  // Modal 1 controls (Record)
   document.getElementById("modal-btn-cancel")?.addEventListener("click", () => {
     closeRecordModal();
     resetTimer();
   });
   document.getElementById("modal-btn-save")?.addEventListener("click", saveCurrentSession);
+
+  // Modal 2 controls (Edit Session)
+  document.getElementById("edit-session-btn-cancel")?.addEventListener("click", closeEditSessionModal);
+  document.getElementById("edit-session-btn-save")?.addEventListener("click", saveEditedSession);
 
   // TODO Form
   document.getElementById("todo-form")?.addEventListener("submit", (e) => {
