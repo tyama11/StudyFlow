@@ -9,7 +9,6 @@ const STORAGE_KEYS = {
 let todos = [];
 let sessions = [];
 let activeTab = "tracker";
-let todoFilter = "all";
 
 // Timer State
 let timerMode = "countup"; // 'countup' | 'pomodoro'
@@ -80,14 +79,14 @@ function saveData() {
 
 // --- View Updates ---
 function updateAllViews() {
-  updateHeaderAndSidebar();
+  updateHeaderAndSummary();
   renderTodoList();
   renderTodaySessions();
   updateTodoLinkOptions();
   renderHistoryView();
 }
 
-function updateHeaderAndSidebar() {
+function updateHeaderAndSummary() {
   const todayStr = getTodayStr();
   const headerDateTitle = document.getElementById("header-date-title");
   if (headerDateTitle) {
@@ -98,61 +97,61 @@ function updateHeaderAndSidebar() {
   const todaySessions = sessions.filter((s) => s.date === todayStr);
   const totalSeconds = todaySessions.reduce((sum, s) => sum + (s.durationSeconds || 0), 0);
 
-  const sidebarTodayTime = document.getElementById("sidebar-today-time");
-  if (sidebarTodayTime) {
-    sidebarTodayTime.textContent = formatHoursMinutes(totalSeconds);
+  // Tab Inside Summary: Today's Total Time
+  const todayTotalTimeEl = document.getElementById("today-total-time");
+  if (todayTotalTimeEl) {
+    todayTotalTimeEl.textContent = formatHoursMinutes(totalSeconds);
   }
 
   // Calculate today's TODO ratio
   const todayTodos = todos.filter((t) => !t.date || t.date === todayStr);
   const completedCount = todayTodos.filter((t) => t.completed).length;
   const totalTodoCount = todayTodos.length;
-  const ratioText = `TODO ${completedCount}/${totalTodoCount} 完了`;
 
-  const sidebarTodoRatio = document.getElementById("sidebar-todo-ratio");
-  if (sidebarTodoRatio) {
-    sidebarTodoRatio.textContent = ratioText;
+  const todayTodoRatioEl = document.getElementById("today-todo-ratio");
+  if (todayTodoRatioEl) {
+    todayTodoRatioEl.textContent = `${completedCount} / ${totalTodoCount} 完了`;
   }
 
-  const progressBar = document.getElementById("sidebar-progress-bar");
+  const pct = totalTodoCount > 0 ? Math.round((completedCount / totalTodoCount) * 100) : 0;
+  const percentEl = document.getElementById("today-progress-percent");
+  if (percentEl) {
+    percentEl.textContent = `${pct}%`;
+  }
+
+  const progressBar = document.getElementById("today-progress-bar");
   if (progressBar) {
-    const pct = totalTodoCount > 0 ? (completedCount / totalTodoCount) * 100 : 0;
     progressBar.style.width = `${pct}%`;
   }
 }
 
-// --- TODO Management ---
+// --- TODO Management (一覧のみ表示) ---
 function renderTodoList() {
   const container = document.getElementById("todo-list-container");
   if (!container) return;
 
   const todayStr = getTodayStr();
-  let filtered = todos.filter((t) => !t.date || t.date === todayStr);
+  // 今日のTODOを一覧表示（未完了・完了済みを削除し、一覧のみ残す）
+  const currentTodos = todos.filter((t) => !t.date || t.date === todayStr);
 
-  if (todoFilter === "active") {
-    filtered = filtered.filter((t) => !t.completed);
-  } else if (todoFilter === "done") {
-    filtered = filtered.filter((t) => t.completed);
-  }
-
-  if (filtered.length === 0) {
+  if (currentTodos.length === 0) {
     container.innerHTML = `
       <div class="empty-hint">
-        ${todoFilter === "done" ? "完了したタスクはまだありません。" : "今日のタスクはありません。上から追加してみましょう！"}
+        今日のタスクはありません。上から追加してみましょう！
       </div>
     `;
     return;
   }
 
-  container.innerHTML = filtered
+  container.innerHTML = currentTodos
     .map(
       (todo) => `
     <div class="todo-item ${todo.completed ? "completed" : ""}" data-id="${todo.id}">
-      <input type="checkbox" class="todo-checkbox" ${todo.completed ? "checked" : ""} />
+      <input type="checkbox" class="todo-checkbox" ${todo.completed ? "checked" : ""} title="${todo.completed ? "未完了に戻す" : "完了にする"}" />
       <div class="todo-content">
         <div class="todo-title">${escapeHtml(todo.title)}</div>
         <div class="todo-meta">
-          <span class="todo-subject-badge">${escapeHtml(todo.subject || "自習")}</span>
+          <span class="todo-subject-badge">${escapeHtml(todo.subject || "その他自習")}</span>
           ${todo.estimatedMinutes ? `<span>目安: ${todo.estimatedMinutes}分</span>` : ""}
           ${todo.memo ? `<span>メモ: ${escapeHtml(todo.memo)}</span>` : ""}
         </div>
@@ -199,7 +198,7 @@ function addTodo(title, subject, estimatedMinutes, memo) {
   const newTodo = {
     id: generateId(),
     title,
-    subject: subject || "自習",
+    subject: subject || "英語",
     estimatedMinutes: estimatedMinutes ? Number(estimatedMinutes) : null,
     memo: memo || "",
     completed: false,
@@ -275,6 +274,8 @@ function startTimer() {
     targetDisplay.textContent = `科目: ${subjectSelect.value}`;
   }
 
+  if (timerInterval) clearInterval(timerInterval);
+
   timerInterval = setInterval(() => {
     if (timerMode === "countup") {
       timerSeconds++;
@@ -286,7 +287,7 @@ function startTimer() {
         updateTimerDisplay();
       } else {
         stopTimer(true);
-        alert("ポモドーロ完了！素晴らしい集中でした。ひと息つきましょう。");
+        alert("ポモドーロ完了！素晴らしい集中力でした。少し休憩しましょう。");
       }
     }
   }, 1000);
@@ -294,7 +295,10 @@ function startTimer() {
 
 function stopTimer(isCompleted = false) {
   if (!timerRunning && timerSeconds === 0) return;
-  clearInterval(timerInterval);
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
   timerRunning = false;
 
   const startBtn = document.getElementById("btn-timer-start");
@@ -314,11 +318,19 @@ function stopTimer(isCompleted = false) {
   }
 }
 
+// リセット機能（確実に00:00:00および停止状態を反映）
 function resetTimer() {
-  if (timerRunning) {
+  if (timerInterval) {
     clearInterval(timerInterval);
-    timerRunning = false;
+    timerInterval = null;
   }
+  timerRunning = false;
+  sessionStartTime = null;
+
+  // カウントアップなら 0、ポモドーロなら 25分 (1500秒)
+  timerSeconds = timerMode === "pomodoro" ? 25 * 60 : 0;
+  updateTimerDisplay();
+
   const startBtn = document.getElementById("btn-timer-start");
   const stopBtn = document.getElementById("btn-timer-stop");
   const timerCircle = document.getElementById("timer-circle");
@@ -331,8 +343,11 @@ function resetTimer() {
   if (chip) chip.classList.remove("running");
   if (chipText) chipText.textContent = "待機中";
 
-  timerSeconds = timerMode === "pomodoro" ? 25 * 60 : 0;
-  updateTimerDisplay();
+  const subjectSelect = document.getElementById("timer-subject");
+  const targetDisplay = document.getElementById("timer-target-display");
+  if (subjectSelect && targetDisplay) {
+    targetDisplay.textContent = `科目: ${subjectSelect.value}`;
+  }
 }
 
 function startTimerForTodo(todoId) {
@@ -362,7 +377,7 @@ function openRecordModal() {
   const subjectSelect = document.getElementById("timer-subject");
   const todoSelect = document.getElementById("timer-todo-link");
 
-  let sub = subjectSelect ? subjectSelect.value : "自習";
+  let sub = subjectSelect ? subjectSelect.value : "その他自習";
   if (todoSelect && todoSelect.value) {
     const linked = todos.find((t) => t.id === todoSelect.value);
     if (linked) sub = `${linked.title} (${sub})`;
@@ -393,7 +408,7 @@ function saveCurrentSession() {
     startTime: startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     endTime: endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     durationSeconds: timerSeconds,
-    subject: subjectSelect ? subjectSelect.value : "自習",
+    subject: subjectSelect ? subjectSelect.value : "その他自習",
     todoId: todoSelect ? todoSelect.value : null,
     memo: memoInput ? memoInput.value : "",
   };
@@ -530,7 +545,7 @@ function renderHistoryView() {
           <div class="todo-content">
             <div class="todo-title">${escapeHtml(t.title)}</div>
             <div class="todo-meta">
-              <span class="todo-subject-badge">${escapeHtml(t.subject || "自習")}</span>
+              <span class="todo-subject-badge">${escapeHtml(t.subject || "その他自習")}</span>
               ${t.completed ? `<span style="color: var(--success)">✓ 達成</span>` : `<span>未完了</span>`}
             </div>
           </div>
@@ -625,25 +640,33 @@ function importDataFromJSON(file) {
   reader.readAsText(file);
 }
 
+// 受験生向けのリアルなデモデータ
 function loadSampleDemoData() {
   const today = new Date();
   const sampleTodos = [];
   const sampleSessions = [];
-  const subjects = ["英語", "プログラミング", "数学・科学", "読書", "資格・試験"];
+  const examTasks = [
+    { title: "ターゲット1900 100語暗記・確認テスト", subject: "英語", mins: 45 },
+    { title: "共通テスト過去問 数学II・B 微積分", subject: "数学", mins: 60 },
+    { title: "現代文 キーワード読解 2章", subject: "現代文", mins: 40 },
+    { title: "セミナー物理 力学 総合演習3題", subject: "物理", mins: 75 },
+    { title: "共通テスト化学 酸化還元・熱化学", subject: "化学", mins: 60 },
+    { title: "日本史 一問一答 近現代史の総復習", subject: "日本史", mins: 50 },
+    { title: "志望校 英語過去問 2024年度長文読解", subject: "過去問・演習", mins: 90 },
+  ];
 
-  // Generate for past 7 days
   for (let i = 6; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().split("T")[0];
 
-    // 2-3 todos per day
+    const task = examTasks[i % examTasks.length];
     const t1 = {
       id: generateId(),
-      title: `${subjects[i % subjects.length]}の基本演習 (Day ${7 - i})`,
-      subject: subjects[i % subjects.length],
-      estimatedMinutes: 60,
-      memo: "参考書チャプターの復習",
+      title: task.title,
+      subject: task.subject,
+      estimatedMinutes: task.mins,
+      memo: "間違えた箇所の解説を熟読",
       completed: true,
       completedAt: new Date(d.getTime() + 3600000).toISOString(),
       createdAt: d.toISOString(),
@@ -651,10 +674,10 @@ function loadSampleDemoData() {
     };
     const t2 = {
       id: generateId(),
-      title: `語学リスニング または 公式確認`,
-      subject: "英語",
+      title: "古文単語315 1〜100確認テスト",
+      subject: "古文・漢文",
       estimatedMinutes: 30,
-      memo: "シャドーイング練習",
+      memo: "助動詞の接続も合わせて確認",
       completed: i < 5,
       completedAt: i < 5 ? new Date(d.getTime() + 7200000).toISOString() : null,
       createdAt: d.toISOString(),
@@ -662,24 +685,23 @@ function loadSampleDemoData() {
     };
     sampleTodos.push(t1, t2);
 
-    // 1-2 sessions per day
-    const sessionDuration = (Math.floor(Math.random() * 80) + 40) * 60; // 40~120 mins
+    const sessionDuration = (Math.floor(Math.random() * 60) + 60) * 60; // 60~120 mins
     sampleSessions.push({
       id: generateId(),
       date: dateStr,
-      startTime: "10:00",
-      endTime: "11:30",
+      startTime: "14:00",
+      endTime: "15:45",
       durationSeconds: sessionDuration,
-      subject: subjects[i % subjects.length],
+      subject: task.subject,
       todoId: t1.id,
-      memo: "順調に進行",
+      memo: "集中して演習完了",
     });
   }
 
   todos = sampleTodos;
   sessions = sampleSessions;
   saveData();
-  alert("1週間分のサンプルデータを投入しました！「過去のデータ & 統計」タブでグラフをご確認いただけます。");
+  alert("受験生向けのサンプルデータを投入しました！「過去のデータ & 統計」タブでグラフをご確認いただけます。");
 }
 
 function clearAllData() {
@@ -760,16 +782,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (memoInput) memoInput.value = "";
       if (estimateInput) estimateInput.value = "";
     }
-  });
-
-  // TODO Filter buttons
-  document.querySelectorAll(".filter-pill").forEach((pill) => {
-    pill.addEventListener("click", () => {
-      document.querySelectorAll(".filter-pill").forEach((p) => p.classList.remove("active"));
-      pill.classList.add("active");
-      todoFilter = pill.getAttribute("data-filter");
-      renderTodoList();
-    });
   });
 
   // History Date Picker Controls
