@@ -5,7 +5,7 @@ on:
     branches:
       - main
       - master
-  workflow_dispatch: # GitHubのブラウザ上で「Run workflow」ボタンからいつでも手動ビルド可能
+  workflow_dispatch:
 
 jobs:
   build-tauri:
@@ -32,8 +32,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: "npm"
+          node-version: 22
 
       - name: Setup Rust stable
         uses: dtolnay/rust-toolchain@stable
