@@ -18,10 +18,10 @@
 本リポジトリの **[Releases ページ](https://github.com/tyama11/StudyFlow/releases/latest)** から、お使いの OS に合わせた最新バイナリを直接ダウンロードできます：
 
 - 🍎 **macOS (Intel & Apple Silicon M1〜M4 両対応)**:
-  - **[study-flow_1.0.0_universal.dmg](https://github.com/tyama11/StudyFlow/releases/download/v1.0.0/study-flow_1.0.0_universal.dmg)**
+  - **[study-flow_1.1.0_universal.dmg](https://github.com/tyama11/StudyFlow/releases/download/v1.1.0/study-flow_1.1.0_universal.dmg)**
 - 🪟 **Windows (64-bit)**:
-  - **[study-flow_1.0.0_x64-setup.exe](https://github.com/tyama11/StudyFlow/releases/download/v1.0.0/study-flow_1.0.0_x64-setup.exe)** （インストーラー）
-  - **[study-flow_1.0.0_x64_en-US.msi](https://github.com/tyama11/StudyFlow/releases/download/v1.0.0/study-flow_1.0.0_x64_en-US.msi)** （MSI）
+  - **[study-flow_1.1.0_x64-setup.exe](https://github.com/tyama11/StudyFlow/releases/download/v1.1.0/study-flow_1.1.0_x64-setup.exe)** （インストーラー）
+  - **[study-flow_1.1.0_x64_en-US.msi](https://github.com/tyama11/StudyFlow/releases/download/v1.1.0/study-flow_1.1.0_x64_en-US.msi)** （MSI）
 
 ---
 
