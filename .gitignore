@@ -1,0 +1,17 @@
+# Node & Frontend
+node_modules/
+dist/
+.vite/
+
+# Rust & Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# OS Specific
+.DS_Store
+Thumbs.db
+
+# Logs & Env
+*.log
+.env
+.env.local
