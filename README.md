@@ -1,11 +1,11 @@
-# 📖 StudyFlow - 受験生・学習者のための学習時間記録 & TODOアプリ (macOS版)
+# 📖 StudyFlow - 受験生・学習者のための学習時間記録 & TODOアプリ (macOS Universal版)
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](#)
-[![Platform](https://img.shields.io/badge/platform-macOS-blue)](#)
+[![Platform](https://img.shields.io/badge/platform-macOS%20(Universal%3A%20Intel%20%26%20Apple%20Silicon)-blue)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **StudyFlow** は、日々の勉強時間をリアルタイムで計測・記録し、TODOタスクと一緒に一元管理できる macOS 向けデスクトップアプリケーションです。  
-直感的なタイマー操作で勉強時間を記録し、過去の学習記録や達成したタスクをカレンダーからいつでも振り返ることができます。
+**Universal Binary** としてビルドされているため、**Intel Mac** と **Apple Silicon (M1/M2/M3/M4) Mac** のどちらでもそのまま高速・快適に動作します。
 
 > **🔒 完全ローカル保存 & オフライン対応**  
 > 勉強データはすべてお使いのMac内に安全に保存されます。外部サーバーへの個人情報送信は一切行われないため、オフライン環境でも安心してご利用いただけます。
@@ -16,12 +16,12 @@
 
 ### 📥 1. アプリのダウンロード
 1. 本リポジトリの **[Actions](../../actions)** の最新ビルド結果（ページ最下部の **Artifacts**）を開きます。
-2. **`study-flow-macos`** をクリックして zip ファイルをダウンロードします。
+2. **`study-flow-macos-universal`** をクリックして zip ファイルをダウンロードします。
 
 ---
 
 ### 💻 2. インストール & 起動手順
-1. ダウンロードした `study-flow-macos.zip` をダブルクリックして展開します。
+1. ダウンロードした `study-flow-macos-universal.zip` をダブルクリックして展開します。
 2. 展開された `.dmg` ファイル（または `.app`）を開きます。
 3. `StudyFlow` アイコンを「Applications（アプリケーション）」フォルダにドラッグ＆ドロップします。
 4. アプリケーションフォルダから `StudyFlow` を起動します。
@@ -54,14 +54,15 @@
 - 直近7日間の学習時間の推移を美しい棒グラフ（Canvas）で自動可視化。学習の波を把握できます。
 
 ### 5. 💾 データ管理 & バックアップ
-- **JSON エクスポート / インポート**: 全てのデータを1クリックでバックアップ・復元可能。PC買い替え時も安心です。
+- **JSON エクスポート / インポート**: 全てのデータを1クリックでバックアップ・復元可能。Mac移行時も安心です。
 
 ---
 
 ## 🛠️ 主な技術スタック
 - **基盤**: [Tauri v2](https://v2.tauri.app/) (Rust)
+- **ターゲット**: `universal-apple-darwin` (Intel x86_64 & Apple Silicon aarch64 両対応)
 - **UI**: HTML5, CSS3, JavaScript (Vite)
-- **CI/CD**: GitHub Actions (macOS 自動ビルド)
+- **CI/CD**: GitHub Actions (macOS Universal 自動ビルド)
 
 ---
 
