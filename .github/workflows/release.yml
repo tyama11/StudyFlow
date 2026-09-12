@@ -16,10 +16,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js (v24)
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Setup Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -40,8 +40,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "StudyFlow macOS ${{ github.ref_name }}"
-          releaseBody: "StudyFlow macOS向け自動ビルド。以下の assets から .dmg をダウンロードしてインストールしてください。"
+          releaseName: "StudyFlow macOS Universal ${{ github.ref_name }}"
+          releaseBody: "StudyFlow macOS Universal（Intel & Apple Silicon両対応）リリース。"
           releaseDraft: false
           prerelease: false
           args: "--target universal-apple-darwin"
