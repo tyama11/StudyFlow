@@ -303,6 +303,16 @@ body {
   100% { transform: scale(0.95); opacity: 0.7; }
 }
 
+/* Section Title */
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 /* Today Summary Banner */
 .today-summary-banner {
   display: flex;
@@ -418,6 +428,11 @@ body {
   transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
+.total-highlight-card {
+  border-color: var(--primary);
+  box-shadow: 0 4px 15px var(--primary-glow);
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -428,6 +443,85 @@ body {
 .card-header h3 {
   font-size: 1.05rem;
   font-weight: 600;
+}
+
+/* Subject Breakdown Card */
+.subject-total-badge {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.6rem;
+  background-color: var(--bg-main);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  color: var(--text-muted);
+}
+
+.subject-breakdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.subject-breakdown-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.subject-item-meta {
+  width: 120px;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.subject-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.subject-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subject-bar-wrap {
+  flex: 1;
+  height: 10px;
+  background-color: var(--bg-main);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.subject-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.subject-item-stats {
+  width: 130px;
+  text-align: right;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.subject-stat-hours {
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.subject-stat-pct {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  min-width: 36px;
 }
 
 /* Timer Section */
@@ -680,7 +774,7 @@ body {
   font-size: 0.82rem;
   color: var(--text-dim);
   text-align: center;
-  padding: 1rem 0;
+  padding: 1.25rem 0;
 }
 
 /* TODO Card */

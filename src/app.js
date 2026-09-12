@@ -560,8 +560,128 @@ function renderTodaySessions() {
   });
 }
 
+// --- Subject Color Mapping ---
+const SUBJECT_COLORS = {
+  "英語": "#3b82f6",
+  "数学": "#ef4444",
+  "現代文": "#10b981",
+  "古文・漢文": "#059669",
+  "物理": "#8b5cf6",
+  "化学": "#ec4899",
+  "生物": "#14b8a6",
+  "地学": "#f59e0b",
+  "日本史": "#d97706",
+  "世界史": "#b45309",
+  "地理": "#06b6d4",
+  "公共・政経・倫理": "#6366f1",
+  "情報": "#0ea5e9",
+  "過去問・演習": "#f97316",
+  "模試・復習": "#a855f7",
+  "その他自習": "#64748b",
+};
+
+function getSubjectColor(subject) {
+  return SUBJECT_COLORS[subject] || "#6366f1";
+}
+
+// --- All-time Statistics & Subject Totals ---
+function renderAllTimeStats() {
+  const totalSeconds = sessions.reduce((sum, s) => sum + (s.durationSeconds || 0), 0);
+
+  // 1. All-time Total Time
+  const totalTimeEl = document.getElementById("all-time-total-time");
+  if (totalTimeEl) {
+    totalTimeEl.textContent = formatHoursMinutes(totalSeconds);
+  }
+
+  // 2. All-time Session Count
+  const sessionCountEl = document.getElementById("all-time-session-count");
+  if (sessionCountEl) {
+    sessionCountEl.textContent = `総セッション: ${sessions.length} 回`;
+  }
+
+  // 3. All-time Completed TODOs
+  const completedTodoCount = todos.filter((t) => t.completed).length;
+  const todoCountEl = document.getElementById("all-time-todo-count");
+  if (todoCountEl) {
+    todoCountEl.textContent = `${completedTodoCount} 個`;
+  }
+
+  // 4. Unique Active Days
+  const activeDaysSet = new Set(sessions.map((s) => s.date).filter(Boolean));
+  const activeDaysEl = document.getElementById("all-time-active-days");
+  if (activeDaysEl) {
+    activeDaysEl.textContent = `記録日数: ${activeDaysSet.size} 日`;
+  }
+
+  // 5. Subject Totals Aggregation
+  const subjectMap = {};
+  sessions.forEach((s) => {
+    const sub = s.subject || "その他自習";
+    subjectMap[sub] = (subjectMap[sub] || 0) + (s.durationSeconds || 0);
+  });
+
+  const sortedSubjects = Object.entries(subjectMap)
+    .filter(([_, secs]) => secs > 0)
+    .sort((a, b) => b[1] - a[1]);
+
+  // Top Subject
+  const topSubEl = document.getElementById("all-time-top-subject");
+  const topSubTimeEl = document.getElementById("all-time-top-subject-time");
+  if (sortedSubjects.length > 0) {
+    const [topSub, topTime] = sortedSubjects[0];
+    if (topSubEl) topSubEl.textContent = topSub;
+    if (topSubTimeEl) topSubTimeEl.textContent = formatHoursMinutes(topTime);
+  } else {
+    if (topSubEl) topSubEl.textContent = "-";
+    if (topSubTimeEl) topSubTimeEl.textContent = "-";
+  }
+
+  // Subject Count Badge
+  const breakdownCountEl = document.getElementById("subject-breakdown-count");
+  if (breakdownCountEl) {
+    breakdownCountEl.textContent = `${sortedSubjects.length} 科目記録中`;
+  }
+
+  // Subject Breakdown List
+  const listContainer = document.getElementById("subject-totals-list");
+  if (listContainer) {
+    if (sortedSubjects.length === 0) {
+      listContainer.innerHTML = `
+        <div class="empty-hint">
+          学習記録がまだありません。タイマーで学習を記録するとここに科目ごとの累計時間が表示されます。
+        </div>
+      `;
+    } else {
+      listContainer.innerHTML = sortedSubjects
+        .map(([sub, secs]) => {
+          const pct = totalSeconds > 0 ? Math.round((secs / totalSeconds) * 100) : 0;
+          const color = getSubjectColor(sub);
+          return `
+            <div class="subject-breakdown-item">
+              <div class="subject-item-meta">
+                <span class="subject-dot" style="background-color: ${color};"></span>
+                <span class="subject-name" title="${escapeHtml(sub)}">${escapeHtml(sub)}</span>
+              </div>
+              <div class="subject-bar-wrap">
+                <div class="subject-bar-fill" style="width: ${pct}%; background-color: ${color};"></div>
+              </div>
+              <div class="subject-item-stats">
+                <span class="subject-stat-hours">${formatHoursMinutes(secs)}</span>
+                <span class="subject-stat-pct">${pct}%</span>
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+    }
+  }
+}
+
 // --- History & Past Data View ---
 function renderHistoryView() {
+  renderAllTimeStats();
+
   const dateInput = document.getElementById("history-date-picker");
   if (dateInput && dateInput.value !== selectedHistoryDate) {
     dateInput.value = selectedHistoryDate;

@@ -220,11 +220,47 @@
           </div>
         </section>
 
-        <!-- TAB 2: 過去のデータ & 統計 -->
+        <!-- TAB 2: 過去のデータ & 統計 (累計 ＆ 分野別累計) -->
         <section id="tab-history" class="tab-pane">
+          
+          <!-- 全期間の累計サマリー -->
+          <div class="history-all-time-section">
+            <h3 class="section-title">🏆 全期間の累計学習実績</h3>
+            <div class="grid-3" style="margin-bottom: 1.25rem;">
+              <div class="card stat-card total-highlight-card">
+                <div class="stat-label">総学習時間 (累計)</div>
+                <div class="stat-value" id="all-time-total-time">0時間 0分</div>
+                <div class="stat-sub" id="all-time-session-count">総セッション: 0 回</div>
+              </div>
+              <div class="card stat-card">
+                <div class="stat-label">累計達成TODO</div>
+                <div class="stat-value" id="all-time-todo-count">0 個</div>
+                <div class="stat-sub" id="all-time-active-days">記録日数: 0 日</div>
+              </div>
+              <div class="card stat-card">
+                <div class="stat-label">最も学習した分野</div>
+                <div class="stat-value" id="all-time-top-subject">-</div>
+                <div class="stat-sub" id="all-time-top-subject-time">-</div>
+              </div>
+            </div>
+
+            <!-- 分野・科目別の累計学習時間カード -->
+            <div class="card subject-totals-card" style="margin-bottom: 1.5rem;">
+              <div class="card-header">
+                <h3>📚 分野・科目別の累計学習時間</h3>
+                <span class="subject-total-badge" id="subject-breakdown-count">0 科目記録中</span>
+              </div>
+              <div class="subject-breakdown-list" id="subject-totals-list">
+                <!-- JSで科目別の累計時間・割合バーを動的生成 -->
+              </div>
+            </div>
+          </div>
+
+          <!-- 日付別セレクター & 日別サマリー -->
+          <h3 class="section-title">📅 日付ごとの振り返り &amp; 記録</h3>
           <div class="history-controls card">
             <div class="date-picker-row">
-              <label for="history-date-picker"><strong>📅 表示する日付を選択:</strong></label>
+              <label for="history-date-picker"><strong>表示する日付を選択:</strong></label>
               <div class="picker-group">
                 <button class="btn btn-secondary btn-sm" id="btn-prev-day">◀ 前の日</button>
                 <input type="date" id="history-date-picker" class="date-input" />
@@ -247,7 +283,7 @@
               <div class="stat-sub" id="history-todo-rate">達成率 0%</div>
             </div>
             <div class="card stat-card">
-              <div class="stat-label">最多科目</div>
+              <div class="stat-label">その日の最多科目</div>
               <div class="stat-value" id="history-top-subject">-</div>
               <div class="stat-sub" id="history-top-subject-time">-</div>
             </div>
@@ -265,7 +301,7 @@
                     <tr>
                       <th>時間帯</th>
                       <th>科目</th>
-                      <th>関連タスク</th>
+                      <th>関連タスク/メモ</th>
                       <th>学習時間</th>
                       <th>操作</th>
                     </tr>
@@ -335,7 +371,7 @@
               <div class="backup-item">
                 <div class="backup-info">
                   <h4>デモデータの読み込み</h4>
-                  <p>アプリのグラフや過去ログの表示を確認するためのサンプルデータを投入します。</p>
+                  <p>アプリのグラフや過去ログ、分野別累計の表示を確認するためのサンプルデータを投入します。</p>
                 </div>
                 <button class="btn btn-secondary" id="btn-load-demo">
                   <span>サンプルデータを投入</span>
