@@ -1,47 +1,20 @@
 import { renderWeeklyChart } from "./chart.js";
 import kaeruPianoAudioSrc from "./assets/audio/kaeru_piano.mp3";
-
-// --- State Management ---
-const STORAGE_KEYS = {
-  TODOS: "studyflow_todos",
-  SESSIONS: "studyflow_sessions",
-  THEME: "studyflow_theme",
-  SUBJECTS: "studyflow_subjects",
-  GOAL_SETTINGS: "studyflow_goal_settings",
-  POMODORO_SETTINGS: "studyflow_pomodoro_settings",
-};
-
-const DEFAULT_SUBJECTS = [
-  { name: "英語", color: "#3b82f6" },
-  { name: "数学", color: "#ef4444" },
-  { name: "現代文", color: "#10b981" },
-  { name: "古文・漢文", color: "#059669" },
-  { name: "物理", color: "#8b5cf6" },
-  { name: "化学", color: "#ec4899" },
-  { name: "生物", color: "#14b8a6" },
-  { name: "地学", color: "#f59e0b" },
-  { name: "日本史", color: "#d97706" },
-  { name: "世界史", color: "#b45309" },
-  { name: "地理", color: "#06b6d4" },
-  { name: "公共・政経・倫理", color: "#6366f1" },
-  { name: "情報", color: "#0ea5e9" },
-  { name: "過去問・演習", color: "#f97316" },
-  { name: "模試・復習", color: "#a855f7" },
-  { name: "その他自習", color: "#64748b" },
-];
-
-const DEFAULT_GOAL_SETTINGS = {
-  type: "tasks", // "tasks" (タスク数) | "time" (学習時間)
-  taskTargetMode: "all", // "all" (全タスク完了) | "custom" (指定個数)
-  taskTargetCount: 5,
-  timeTargetMinutes: 180, // デフォルト3時間
-};
-
-const DEFAULT_POMODORO_SETTINGS = {
-  workMinutes: 25, // 集中時間（分）
-  soundEnabled: true, // アラーム音を鳴らすか
-  volume: 0.8, // 音量 (0.0 - 1.0)
-};
+import {
+  STORAGE_KEYS,
+  DEFAULT_SUBJECTS,
+  DEFAULT_GOAL_SETTINGS,
+  DEFAULT_POMODORO_SETTINGS,
+} from "./constants/defaults.js";
+import { getTodayStr, formatDateDisplay } from "./utils/date.js";
+import { formatDuration, formatHoursMinutes, generateId, escapeHtml } from "./utils/format.js";
+import {
+  calculateTotalSeconds,
+  calculateGoalProgress,
+  aggregateSessionsBySubject,
+  getWeeklyChartData,
+} from "./models/stats.js";
+import { sanitizePomodoroMinutes } from "./models/timer.js";
 
 let todos = [];
 let sessions = [];
@@ -70,42 +43,6 @@ let currentSessionDurationSeconds = 0;
 
 // History State
 let selectedHistoryDate = getTodayStr();
-
-// --- Utility Functions ---
-function getTodayStr() {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function formatDateDisplay(dateStr) {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const dateObj = new Date(y, m - 1, d);
-  const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
-  return `${y}年${m}月${d}日 (${weekdays[dateObj.getDay()]})`;
-}
-
-function formatDuration(seconds) {
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
-  return `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-}
-
-function formatHoursMinutes(seconds) {
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  if (hrs > 0) {
-    return `${hrs}時間 ${mins}分`;
-  }
-  return `${mins}分`;
-}
-
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
-}
 
 // --- Custom Modal Dialog & Toast (Tauri/WebView Safe) ---
 function showConfirmModal({ title, message, confirmText, confirmClass, onConfirm }) {
@@ -355,7 +292,7 @@ function savePomodoroSettings(showNotification = false) {
 }
 
 function setPomodoroMinutes(minutes, updateTimerIfIdle = true) {
-  const m = Math.max(1, Math.min(180, parseInt(minutes, 10) || 25));
+  const m = sanitizePomodoroMinutes(minutes);
   pomodoroSettings.workMinutes = m;
   savePomodoroSettings(false);
   if (timerMode === "pomodoro" && !timerRunning && updateTimerIfIdle) {
@@ -641,38 +578,24 @@ function updateHeaderAndSummary() {
   const completedCount = todayTodos.filter((t) => t.completed).length;
   const totalTodoCount = todayTodos.length;
 
-  let pct = 0;
-  let isAchieved = false;
+  const goalProgress = calculateGoalProgress(goalSettings, todaySessions, todayTodos);
+  const { pct, isAchieved } = goalProgress;
 
-  if (goalSettings.type === "time") {
-    // --- 時間基準 ---
-    const targetMinutes = Math.max(1, goalSettings.timeTargetMinutes || 180);
-    const targetSeconds = targetMinutes * 60;
-
-    if (goalIconEl) goalIconEl.textContent = "⏱️";
-    if (goalLabelEl) goalLabelEl.textContent = `本日の学習目標 (${formatHoursMinutes(targetSeconds)})`;
-    if (goalRatioEl) goalRatioEl.textContent = `${formatHoursMinutes(totalSeconds)} / ${formatHoursMinutes(targetSeconds)}`;
+  if (goalProgress.type === "time") {
+    if (goalIconEl) goalIconEl.textContent = goalProgress.icon;
+    if (goalLabelEl) goalLabelEl.textContent = `本日の学習目標 (${formatHoursMinutes(goalProgress.targetSeconds)})`;
+    if (goalRatioEl) goalRatioEl.textContent = `${formatHoursMinutes(totalSeconds)} / ${formatHoursMinutes(goalProgress.targetSeconds)}`;
     if (progressLabelEl) progressLabelEl.textContent = "目標時間達成率";
-
-    pct = Math.round((totalSeconds / targetSeconds) * 100);
-    isAchieved = totalSeconds >= targetSeconds;
   } else {
-    // --- タスク数基準 ---
-    if (goalIconEl) goalIconEl.textContent = "📝";
+    if (goalIconEl) goalIconEl.textContent = goalProgress.icon;
     if (progressLabelEl) progressLabelEl.textContent = "タスク達成率";
 
-    if (goalSettings.taskTargetMode === "custom") {
-      const targetCount = Math.max(1, goalSettings.taskTargetCount || 5);
-      if (goalLabelEl) goalLabelEl.textContent = `本日のTODO達成 (目標 ${targetCount} 個)`;
-      if (goalRatioEl) goalRatioEl.textContent = `${completedCount} / ${targetCount} 個達成`;
-      pct = Math.round((completedCount / targetCount) * 100);
-      isAchieved = completedCount >= targetCount;
+    if (goalProgress.type === "tasks_custom") {
+      if (goalLabelEl) goalLabelEl.textContent = `本日のTODO達成 (目標 ${goalProgress.targetCount} 個)`;
+      if (goalRatioEl) goalRatioEl.textContent = `${goalProgress.completedCount} / ${goalProgress.targetCount} 個達成`;
     } else {
-      // 全タスク完了モード
       if (goalLabelEl) goalLabelEl.textContent = "本日のTODO達成 (全タスク)";
-      if (goalRatioEl) goalRatioEl.textContent = `${completedCount} / ${totalTodoCount} 完了`;
-      pct = totalTodoCount > 0 ? Math.round((completedCount / totalTodoCount) * 100) : 0;
-      isAchieved = completedCount === totalTodoCount && totalTodoCount > 0;
+      if (goalRatioEl) goalRatioEl.textContent = `${goalProgress.completedCount} / ${goalProgress.totalTodoCount} 完了`;
     }
   }
 
@@ -1245,23 +1168,15 @@ function renderAllTimeStats() {
   }
 
   // 5. Subject Totals Aggregation
-  const subjectMap = {};
-  sessions.forEach((s) => {
-    const sub = s.subject || "その他自習";
-    subjectMap[sub] = (subjectMap[sub] || 0) + (s.durationSeconds || 0);
-  });
-
-  const sortedSubjects = Object.entries(subjectMap)
-    .filter(([_, secs]) => secs > 0)
-    .sort((a, b) => b[1] - a[1]);
+  const subjectAggregates = aggregateSessionsBySubject(sessions);
 
   // Top Subject
   const topSubEl = document.getElementById("all-time-top-subject");
   const topSubTimeEl = document.getElementById("all-time-top-subject-time");
-  if (sortedSubjects.length > 0) {
-    const [topSub, topTime] = sortedSubjects[0];
-    if (topSubEl) topSubEl.textContent = topSub;
-    if (topSubTimeEl) topSubTimeEl.textContent = formatHoursMinutes(topTime);
+  if (subjectAggregates.length > 0) {
+    const topItem = subjectAggregates[0];
+    if (topSubEl) topSubEl.textContent = topItem.subject;
+    if (topSubTimeEl) topSubTimeEl.textContent = formatHoursMinutes(topItem.seconds);
   } else {
     if (topSubEl) topSubEl.textContent = "-";
     if (topSubTimeEl) topSubTimeEl.textContent = "-";
@@ -1270,22 +1185,21 @@ function renderAllTimeStats() {
   // Subject Count Badge
   const breakdownCountEl = document.getElementById("subject-breakdown-count");
   if (breakdownCountEl) {
-    breakdownCountEl.textContent = `${sortedSubjects.length} 科目記録中`;
+    breakdownCountEl.textContent = `${subjectAggregates.length} 科目記録中`;
   }
 
   // Subject Breakdown List
   const listContainer = document.getElementById("subject-totals-list");
   if (listContainer) {
-    if (sortedSubjects.length === 0) {
+    if (subjectAggregates.length === 0) {
       listContainer.innerHTML = `
         <div class="empty-hint">
           学習記録がまだありません。タイマーで学習を記録するとここに科目ごとの累計時間が表示されます。
         </div>
       `;
     } else {
-      listContainer.innerHTML = sortedSubjects
-        .map(([sub, secs]) => {
-          const pct = totalSeconds > 0 ? Math.round((secs / totalSeconds) * 100) : 0;
+      listContainer.innerHTML = subjectAggregates
+        .map(({ subject: sub, seconds: secs, percentage: pct }) => {
           const color = getSubjectColor(sub);
           return `
             <div class="subject-breakdown-item">
@@ -1327,22 +1241,17 @@ function renderHistoryView() {
   if (sessionCountEl) sessionCountEl.textContent = `${selectedSessions.length} セッション`;
 
   // Top Subject
-  const subjectMap = {};
-  selectedSessions.forEach((s) => {
-    subjectMap[s.subject] = (subjectMap[s.subject] || 0) + s.durationSeconds;
-  });
-  let topSub = "-";
-  let topSubTime = 0;
-  for (const [sub, secs] of Object.entries(subjectMap)) {
-    if (secs > topSubTime) {
-      topSubTime = secs;
-      topSub = sub;
-    }
-  }
+  const historySubjectAggs = aggregateSessionsBySubject(selectedSessions);
   const topSubEl = document.getElementById("history-top-subject");
   const topSubTimeEl = document.getElementById("history-top-subject-time");
-  if (topSubEl) topSubEl.textContent = topSub;
-  if (topSubTimeEl) topSubTimeEl.textContent = topSubTime > 0 ? formatHoursMinutes(topSubTime) : "-";
+  if (historySubjectAggs.length > 0) {
+    const topSub = historySubjectAggs[0];
+    if (topSubEl) topSubEl.textContent = topSub.subject;
+    if (topSubTimeEl) topSubTimeEl.textContent = formatHoursMinutes(topSub.seconds);
+  } else {
+    if (topSubEl) topSubEl.textContent = "-";
+    if (topSubTimeEl) topSubTimeEl.textContent = "-";
+  }
 
   // TODOs for this date
   const selectedTodos = todos.filter((t) => t.date === selectedHistoryDate);
@@ -1428,28 +1337,7 @@ function renderHistoryView() {
 }
 
 function renderWeeklyTrend() {
-  const chartData = [];
-  const curr = new Date(selectedHistoryDate);
-
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(curr);
-    d.setDate(d.getDate() - i);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    const dateStr = `${y}-${m}-${day}`;
-
-    const daySessions = sessions.filter((s) => s.date === dateStr);
-    const daySeconds = daySessions.reduce((sum, s) => sum + (s.durationSeconds || 0), 0);
-
-    const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
-    chartData.push({
-      date: dateStr,
-      label: `${d.getMonth() + 1}/${d.getDate()}(${weekdays[d.getDay()]})`,
-      minutes: Math.round(daySeconds / 60),
-    });
-  }
-
+  const chartData = getWeeklyChartData(sessions, selectedHistoryDate);
   renderWeeklyChart("weekly-chart", chartData);
 }
 
