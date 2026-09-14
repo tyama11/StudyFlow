@@ -1365,7 +1365,7 @@ function switchTab(tabName) {
 function exportDataAsJSON() {
   const payload = {
     appName: "StudyFlow",
-    version: "1.3.0",
+    version: "1.4.0",
     exportDate: new Date().toISOString(),
     todos,
     sessions,
