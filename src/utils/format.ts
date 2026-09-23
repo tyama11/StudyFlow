@@ -5,7 +5,8 @@
  * @example formatDuration(3665) // "01:01:05"
  */
 export function formatDuration(seconds: number | null | undefined): string {
-  const safeSec = Math.max(0, Math.floor(seconds ?? 0));
+  const num = typeof seconds === "number" && !isNaN(seconds) ? seconds : 0;
+  const safeSec = Math.max(0, Math.floor(num));
   const hrs = Math.floor(safeSec / 3600);
   const mins = Math.floor((safeSec % 3600) / 60);
   const secs = safeSec % 60;
@@ -17,7 +18,8 @@ export function formatDuration(seconds: number | null | undefined): string {
  * @example formatHoursMinutes(5400) // "1時間 30分"
  */
 export function formatHoursMinutes(seconds: number | null | undefined): string {
-  const safeSec = Math.max(0, Math.floor(seconds ?? 0));
+  const num = typeof seconds === "number" && !isNaN(seconds) ? seconds : 0;
+  const safeSec = Math.max(0, Math.floor(num));
   const hrs = Math.floor(safeSec / 3600);
   const mins = Math.floor((safeSec % 3600) / 60);
   if (hrs > 0) {
