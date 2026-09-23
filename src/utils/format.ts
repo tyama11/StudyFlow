@@ -2,11 +2,10 @@
 
 /**
  * Formats seconds into HH:MM:SS format
- * @param {number} seconds
- * @returns {string} e.g. "01:23:45"
+ * @example formatDuration(3665) // "01:01:05"
  */
-export function formatDuration(seconds) {
-  const safeSec = Math.max(0, Math.floor(seconds || 0));
+export function formatDuration(seconds: number | null | undefined): string {
+  const safeSec = Math.max(0, Math.floor(seconds ?? 0));
   const hrs = Math.floor(safeSec / 3600);
   const mins = Math.floor((safeSec % 3600) / 60);
   const secs = safeSec % 60;
@@ -15,11 +14,10 @@ export function formatDuration(seconds) {
 
 /**
  * Formats seconds into human-readable Japanese format: "X時間 Y分" or "Y分"
- * @param {number} seconds
- * @returns {string} e.g. "1時間 30分", "45分"
+ * @example formatHoursMinutes(5400) // "1時間 30分"
  */
-export function formatHoursMinutes(seconds) {
-  const safeSec = Math.max(0, Math.floor(seconds || 0));
+export function formatHoursMinutes(seconds: number | null | undefined): string {
+  const safeSec = Math.max(0, Math.floor(seconds ?? 0));
   const hrs = Math.floor(safeSec / 3600);
   const mins = Math.floor((safeSec % 3600) / 60);
   if (hrs > 0) {
@@ -30,18 +28,16 @@ export function formatHoursMinutes(seconds) {
 
 /**
  * Generates a unique alphanumeric ID
- * @returns {string}
  */
-export function generateId() {
+export function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
 }
 
 /**
  * Escapes HTML characters to prevent XSS
- * @param {string} str
- * @returns {string}
+ * @example escapeHtml('<script>') // "&lt;script&gt;"
  */
-export function escapeHtml(str) {
+export function escapeHtml(str: unknown): string {
   if (str === null || str === undefined) return "";
   return String(str)
     .replace(/&/g, "&amp;")

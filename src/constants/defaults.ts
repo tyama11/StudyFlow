@@ -1,5 +1,7 @@
 // StudyFlow Constants and Default Configurations
 
+import type { GoalSettings, PomodoroSettings, Subject } from "../types/index.js";
+
 export const STORAGE_KEYS = {
   TODOS: "studyflow_todos",
   SESSIONS: "studyflow_sessions",
@@ -7,9 +9,11 @@ export const STORAGE_KEYS = {
   SUBJECTS: "studyflow_subjects",
   GOAL_SETTINGS: "studyflow_goal_settings",
   POMODORO_SETTINGS: "studyflow_pomodoro_settings",
-};
+} as const;
 
-export const DEFAULT_SUBJECTS = [
+export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
+
+export const DEFAULT_SUBJECTS: Subject[] = [
   { name: "英語", color: "#3b82f6" },
   { name: "数学", color: "#ef4444" },
   { name: "現代文", color: "#10b981" },
@@ -28,15 +32,15 @@ export const DEFAULT_SUBJECTS = [
   { name: "その他自習", color: "#64748b" },
 ];
 
-export const DEFAULT_GOAL_SETTINGS = {
-  type: "tasks", // "tasks" (タスク数) | "time" (学習時間)
-  taskTargetMode: "all", // "all" (全タスク完了) | "custom" (指定個数)
+export const DEFAULT_GOAL_SETTINGS: GoalSettings = {
+  type: "tasks",
+  taskTargetMode: "all",
   taskTargetCount: 5,
   timeTargetMinutes: 180, // デフォルト3時間
 };
 
-export const DEFAULT_POMODORO_SETTINGS = {
-  workMinutes: 25, // 集中時間（分）
-  soundEnabled: true, // アラーム音を鳴らすか
-  volume: 0.8, // 音量 (0.0 - 1.0)
+export const DEFAULT_POMODORO_SETTINGS: PomodoroSettings = {
+  workMinutes: 25,
+  soundEnabled: true,
+  volume: 0.8,
 };

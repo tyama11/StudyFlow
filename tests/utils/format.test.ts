@@ -1,7 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { formatDuration, formatHoursMinutes, escapeHtml, generateId } from "../../src/utils/format.js";
+import {
+  formatDuration,
+  formatHoursMinutes,
+  escapeHtml,
+  generateId,
+} from "../../src/utils/format.js";
 
-describe("src/utils/format.js", () => {
+describe("src/utils/format.ts", () => {
   describe("formatDuration", () => {
     it("formats 0 seconds as 00:00:00", () => {
       expect(formatDuration(0)).toBe("00:00:00");
@@ -23,10 +28,15 @@ describe("src/utils/format.js", () => {
       expect(formatDuration(-10)).toBe("00:00:00");
       expect(formatDuration(NaN)).toBe("00:00:00");
       expect(formatDuration(null)).toBe("00:00:00");
+      expect(formatDuration(undefined)).toBe("00:00:00");
     });
   });
 
   describe("formatHoursMinutes", () => {
+    it("formats 0 seconds as '0分'", () => {
+      expect(formatHoursMinutes(0)).toBe("0分");
+    });
+
     it("formats minutes only when under an hour", () => {
       expect(formatHoursMinutes(1800)).toBe("30分");
     });
@@ -36,15 +46,20 @@ describe("src/utils/format.js", () => {
       expect(formatHoursMinutes(5400)).toBe("1時間 30分");
       expect(formatHoursMinutes(9020)).toBe("2時間 30分");
     });
+
+    it("handles null / undefined gracefully", () => {
+      expect(formatHoursMinutes(null)).toBe("0分");
+      expect(formatHoursMinutes(undefined)).toBe("0分");
+    });
   });
 
   describe("escapeHtml", () => {
     it("escapes dangerous HTML characters", () => {
-      const unsafe = '<script>alert("XSS & \'attack\'")</script>';
+      const unsafe = `<script>alert("XSS & 'attack'")</script>`;
       const safe = escapeHtml(unsafe);
       expect(safe).not.toContain("<");
       expect(safe).not.toContain(">");
-      expect(safe).toBe('&lt;script&gt;alert(&quot;XSS &amp; &#039;attack&#039;&quot;)&lt;/script&gt;');
+      expect(safe).toBe("&lt;script&gt;alert(&quot;XSS &amp; &#039;attack&#039;&quot;)&lt;/script&gt;");
     });
 
     it("handles empty or non-string inputs", () => {
@@ -52,6 +67,14 @@ describe("src/utils/format.js", () => {
       expect(escapeHtml(null)).toBe("");
       expect(escapeHtml(undefined)).toBe("");
       expect(escapeHtml(123)).toBe("123");
+    });
+
+    it("does NOT escape backslash or forward slash (not dangerous in HTML)", () => {
+      expect(escapeHtml("a/b\\c")).toBe("a/b\\c");
+    });
+
+    it("does NOT escape backticks", () => {
+      expect(escapeHtml("`code`")).toBe("`code`");
     });
   });
 
@@ -62,6 +85,11 @@ describe("src/utils/format.js", () => {
       expect(id1).toBeTruthy();
       expect(id2).toBeTruthy();
       expect(id1).not.toBe(id2);
+    });
+
+    it("generates only alphanumeric characters", () => {
+      const id = generateId();
+      expect(id).toMatch(/^[a-z0-9]+$/);
     });
   });
 });

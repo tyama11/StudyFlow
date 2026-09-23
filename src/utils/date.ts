@@ -1,11 +1,11 @@
 // Date utility functions
 
+import type { DateEntry } from "../types/index.js";
+
 /**
  * Returns today's date in YYYY-MM-DD format (local timezone)
- * @param {Date} [date=new Date()]
- * @returns {string} e.g. "2026-09-14"
  */
-export function getTodayStr(date = new Date()) {
+export function getTodayStr(date: Date = new Date()): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
@@ -14,12 +14,13 @@ export function getTodayStr(date = new Date()) {
 
 /**
  * Formats a date string (YYYY-MM-DD) into Japanese display format: "YYYY年M月D日 (曜日)"
- * @param {string} dateStr
- * @returns {string} e.g. "2026年9月14日 (月)"
+ * @example formatDateDisplay("2026-09-14") // "2026年9月14日 (月)"
  */
-export function formatDateDisplay(dateStr) {
+export function formatDateDisplay(dateStr: string | null | undefined): string {
   if (!dateStr || !dateStr.includes("-")) return "";
-  const [y, m, d] = dateStr.split("-").map(Number);
+  const parts = dateStr.split("-").map(Number);
+  const [y, m, d] = parts as [number, number, number];
+  if (!y || !m || !d) return "";
   const dateObj = new Date(y, m - 1, d);
   const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
   return `${y}年${m}月${d}日 (${weekdays[dateObj.getDay()]})`;
@@ -27,13 +28,12 @@ export function formatDateDisplay(dateStr) {
 
 /**
  * Generates an array of past N days up to baseDateStr (inclusive)
- * @param {string} baseDateStr YYYY-MM-DD
- * @param {number} [days=7]
- * @returns {Array<{ date: string, label: string, year: number, month: number, day: number }>}
+ * @example getPastDateRange("2026-09-14", 7) // 7 entries ending on 2026-09-14
  */
-export function getPastDateRange(baseDateStr, days = 7) {
-  const result = [];
-  const [y, m, d] = (baseDateStr || getTodayStr()).split("-").map(Number);
+export function getPastDateRange(baseDateStr: string | undefined, days = 7): DateEntry[] {
+  const result: DateEntry[] = [];
+  const parts = (baseDateStr ?? getTodayStr()).split("-").map(Number);
+  const [y, m, d] = parts as [number, number, number];
   const base = new Date(y, m - 1, d);
   const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
 

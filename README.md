@@ -102,11 +102,19 @@
 
 ---
 
+## 🌐 Web版 (GitHub Pages)
+ブラウザから直接アクセスして利用することもできます：
+👉 **https://tyama11.github.io/StudyFlow/**
+
+---
+
 ## 🛠️ 主な技術スタック
-- **基盤**: [Tauri v2](https://v2.tauri.app/) (Rust)
-- **ターゲット**: macOS Universal (`universal-apple-darwin`) & Windows (`x86_64-pc-windows-msvc`)
-- **UI**: HTML5, CSS3, JavaScript (Vite)
-- **CI/CD**: GitHub Actions (Node.js 24)
+- **言語**: TypeScript (strict mode)
+- **UI / ビルド**: HTML5, CSS3, Vite
+- **基盤 (デスクトップ版)**: [Tauri v2](https://v2.tauri.app/) (Rust)
+- **ターゲット**: Web (GitHub Pages), macOS Universal (`universal-apple-darwin`), Windows (`x86_64-pc-windows-msvc`)
+- **テスト・品質管理**: Vitest, @vitest/coverage-v8 (カバレッジ80%以上), ESLint
+- **CI/CD**: GitHub Actions (型チェック, Lint, ユニットテスト+カバレッジ, ビルド, GitHub Pages自動デプロイ)
 
 ---
 

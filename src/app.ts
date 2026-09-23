@@ -7,7 +7,12 @@ import {
   DEFAULT_POMODORO_SETTINGS,
 } from "./constants/defaults.js";
 import { getTodayStr, formatDateDisplay } from "./utils/date.js";
-import { formatDuration, formatHoursMinutes, generateId, escapeHtml } from "./utils/format.js";
+import {
+  formatDuration,
+  formatHoursMinutes,
+  generateId,
+  escapeHtml,
+} from "./utils/format.js";
 import {
   calculateTotalSeconds,
   calculateGoalProgress,
@@ -15,44 +20,75 @@ import {
   getWeeklyChartData,
 } from "./models/stats.js";
 import { sanitizePomodoroMinutes } from "./models/timer.js";
+import type {
+  Todo,
+  StudySession,
+  Subject,
+  GoalSettings,
+  PomodoroSettings,
+  TimerMode,
+  Theme,
+  GoalProgress,
+} from "./types/index.js";
 
-let todos = [];
-let sessions = [];
-let subjects = [];
-let goalSettings = { ...DEFAULT_GOAL_SETTINGS };
-let pomodoroSettings = { ...DEFAULT_POMODORO_SETTINGS };
+// -------------------------------------------------------
+// Application State
+// -------------------------------------------------------
+
+let todos: Todo[] = [];
+let sessions: StudySession[] = [];
+let subjects: Subject[] = [];
+let goalSettings: GoalSettings = { ...DEFAULT_GOAL_SETTINGS };
+let pomodoroSettings: PomodoroSettings = { ...DEFAULT_POMODORO_SETTINGS };
 let activeTab = "tracker";
-let currentTheme = "auto"; // 'auto' | 'dark' | 'light'
+let currentTheme: Theme = "auto";
 
 // Audio State
-let alarmAudio = null;
+let alarmAudio: HTMLAudioElement | null = null;
 let isAlarmRinging = false;
 let isPreviewPlaying = false;
-let previewAudio = null;
+let previewAudio: HTMLAudioElement | null = null;
 
 // Confirm Modal Callback
-let confirmModalCallback = null;
+let confirmModalCallback: (() => void) | null = null;
 
 // Timer State
-let timerMode = "countup"; // 'countup' | 'pomodoro'
-let timerInterval = null;
+let timerMode: TimerMode = "countup";
+let timerInterval: ReturnType<typeof setInterval> | null = null;
 let timerSeconds = 0;
 let timerRunning = false;
-let sessionStartTime = null;
+let sessionStartTime: Date | null = null;
 let currentSessionDurationSeconds = 0;
 
 // History State
 let selectedHistoryDate = getTodayStr();
 
-// --- Custom Modal Dialog & Toast (Tauri/WebView Safe) ---
-function showConfirmModal({ title, message, confirmText, confirmClass, onConfirm }) {
+// -------------------------------------------------------
+// Custom Modal Dialog & Toast
+// -------------------------------------------------------
+
+interface ConfirmModalOptions {
+  title: string;
+  message: string;
+  confirmText: string;
+  confirmClass: string;
+  onConfirm: () => void;
+}
+
+function showConfirmModal({
+  title,
+  message,
+  confirmText,
+  confirmClass,
+  onConfirm,
+}: ConfirmModalOptions): void {
   const modal = document.getElementById("confirm-modal");
   const titleEl = document.getElementById("confirm-modal-title");
   const msgEl = document.getElementById("confirm-modal-message");
   const confirmBtn = document.getElementById("confirm-modal-btn-confirm");
 
   if (!modal) {
-    if (onConfirm) onConfirm();
+    onConfirm();
     return;
   }
 
@@ -63,39 +99,47 @@ function showConfirmModal({ title, message, confirmText, confirmClass, onConfirm
     confirmBtn.className = `btn ${confirmClass || "btn-danger"}`;
   }
 
-  confirmModalCallback = onConfirm || null;
+  confirmModalCallback = onConfirm;
   modal.style.display = "flex";
 }
 
-function closeConfirmModal() {
+function closeConfirmModal(): void {
   const modal = document.getElementById("confirm-modal");
   if (modal) modal.style.display = "none";
   confirmModalCallback = null;
 }
 
-function showToast(message) {
-  let toast = document.getElementById("app-toast");
+interface ToastElement extends HTMLDivElement {
+  timeoutId?: ReturnType<typeof setTimeout>;
+}
+
+function showToast(message: string): void {
+  let toast = document.getElementById("app-toast") as ToastElement | null;
   if (!toast) {
-    toast = document.createElement("div");
+    toast = document.createElement("div") as ToastElement;
     toast.id = "app-toast";
     toast.className = "app-toast";
     document.body.appendChild(toast);
   }
   toast.textContent = message;
   toast.classList.add("show");
-  clearTimeout(toast.timeoutId);
+  if (toast.timeoutId) clearTimeout(toast.timeoutId);
   toast.timeoutId = setTimeout(() => {
-    toast.classList.remove("show");
+    (toast as ToastElement).classList.remove("show");
   }, 2500);
 }
 
-// --- Theme Management ---
-function initTheme() {
-  currentTheme = localStorage.getItem(STORAGE_KEYS.THEME) || "auto";
+// -------------------------------------------------------
+// Theme Management
+// -------------------------------------------------------
+
+function initTheme(): void {
+  const stored = localStorage.getItem(STORAGE_KEYS.THEME);
+  currentTheme = stored === "dark" || stored === "light" ? stored : "auto";
   applyTheme(currentTheme);
 }
 
-function applyTheme(theme) {
+function applyTheme(theme: Theme): void {
   currentTheme = theme;
   localStorage.setItem(STORAGE_KEYS.THEME, theme);
 
@@ -111,19 +155,17 @@ function applyTheme(theme) {
     if (iconEl) iconEl.textContent = "☀️";
     if (textEl) textEl.textContent = "ライト";
   } else {
-    // OS auto
     document.documentElement.removeAttribute("data-theme");
     if (iconEl) iconEl.textContent = "🌓";
     if (textEl) textEl.textContent = "OS連動";
   }
 
-  // Redraw chart if visible
   if (activeTab === "history") {
     renderWeeklyTrend();
   }
 }
 
-function toggleTheme() {
+function toggleTheme(): void {
   if (currentTheme === "auto") {
     applyTheme("dark");
   } else if (currentTheme === "dark") {
@@ -133,32 +175,41 @@ function toggleTheme() {
   }
 }
 
-// --- Data Persistence ---
-function loadData() {
+// -------------------------------------------------------
+// Data Persistence
+// -------------------------------------------------------
+
+function loadData(): void {
   try {
     const rawTodos = localStorage.getItem(STORAGE_KEYS.TODOS);
-    todos = rawTodos ? JSON.parse(rawTodos) : [];
+    todos = rawTodos ? (JSON.parse(rawTodos) as Todo[]) : [];
 
     const rawSessions = localStorage.getItem(STORAGE_KEYS.SESSIONS);
-    sessions = rawSessions ? JSON.parse(rawSessions) : [];
+    sessions = rawSessions ? (JSON.parse(rawSessions) as StudySession[]) : [];
 
     const rawSubjects = localStorage.getItem(STORAGE_KEYS.SUBJECTS);
     if (rawSubjects) {
-      subjects = JSON.parse(rawSubjects);
+      subjects = JSON.parse(rawSubjects) as Subject[];
     } else {
-      subjects = JSON.parse(JSON.stringify(DEFAULT_SUBJECTS));
+      subjects = JSON.parse(JSON.stringify(DEFAULT_SUBJECTS)) as Subject[];
     }
 
     const rawGoalSettings = localStorage.getItem(STORAGE_KEYS.GOAL_SETTINGS);
     if (rawGoalSettings) {
-      goalSettings = { ...DEFAULT_GOAL_SETTINGS, ...JSON.parse(rawGoalSettings) };
+      goalSettings = {
+        ...DEFAULT_GOAL_SETTINGS,
+        ...(JSON.parse(rawGoalSettings) as Partial<GoalSettings>),
+      };
     } else {
       goalSettings = { ...DEFAULT_GOAL_SETTINGS };
     }
 
     const rawPomodoroSettings = localStorage.getItem(STORAGE_KEYS.POMODORO_SETTINGS);
     if (rawPomodoroSettings) {
-      pomodoroSettings = { ...DEFAULT_POMODORO_SETTINGS, ...JSON.parse(rawPomodoroSettings) };
+      pomodoroSettings = {
+        ...DEFAULT_POMODORO_SETTINGS,
+        ...(JSON.parse(rawPomodoroSettings) as Partial<PomodoroSettings>),
+      };
     } else {
       pomodoroSettings = { ...DEFAULT_POMODORO_SETTINGS };
     }
@@ -166,38 +217,41 @@ function loadData() {
     console.error("Failed to parse localStorage data", e);
     todos = [];
     sessions = [];
-    subjects = JSON.parse(JSON.stringify(DEFAULT_SUBJECTS));
+    subjects = JSON.parse(JSON.stringify(DEFAULT_SUBJECTS)) as Subject[];
     goalSettings = { ...DEFAULT_GOAL_SETTINGS };
     pomodoroSettings = { ...DEFAULT_POMODORO_SETTINGS };
   }
 }
 
-function saveData() {
+function saveData(): void {
   localStorage.setItem(STORAGE_KEYS.TODOS, JSON.stringify(todos));
   localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(sessions));
   updateAllViews();
 }
 
-function saveSubjects() {
+function saveSubjects(): void {
   localStorage.setItem(STORAGE_KEYS.SUBJECTS, JSON.stringify(subjects));
   renderSubjectSelects();
   renderSubjectManageList();
   updateAllViews();
 }
 
-function saveGoalSettings() {
+function saveGoalSettings(): void {
   localStorage.setItem(STORAGE_KEYS.GOAL_SETTINGS, JSON.stringify(goalSettings));
   updateGoalSettingsUI();
   updateHeaderAndSummary();
   showToast("1日の目標設定を保存しました！");
 }
 
-// --- Pomodoro & Alarm Sound ---
-function getAudioSource() {
-  return kaeruPianoAudioSrc || "./audio/kaeru_piano.mp3";
+// -------------------------------------------------------
+// Pomodoro & Alarm Sound
+// -------------------------------------------------------
+
+function getAudioSource(): string {
+  return (kaeruPianoAudioSrc as string) || "./audio/kaeru_piano.mp3";
 }
 
-function initAlarmAudio() {
+function initAlarmAudio(): void {
   if (!alarmAudio) {
     try {
       alarmAudio = new Audio(getAudioSource());
@@ -207,11 +261,11 @@ function initAlarmAudio() {
     }
   }
   if (alarmAudio) {
-    alarmAudio.volume = pomodoroSettings.volume !== undefined ? pomodoroSettings.volume : 0.8;
+    alarmAudio.volume = pomodoroSettings.volume;
   }
 }
 
-function playAlarmSound() {
+function playAlarmSound(): void {
   if (!pomodoroSettings.soundEnabled) return;
   initAlarmAudio();
   if (!alarmAudio) return;
@@ -222,19 +276,19 @@ function playAlarmSound() {
   });
 }
 
-function stopAlarmSound() {
+function stopAlarmSound(): void {
   isAlarmRinging = false;
   if (alarmAudio) {
     alarmAudio.pause();
     alarmAudio.currentTime = 0;
   }
   const alarmBtn = document.getElementById("btn-timer-alarm-stop");
-  if (alarmBtn) alarmBtn.style.display = "none";
+  if (alarmBtn) (alarmBtn as HTMLButtonElement).style.display = "none";
   const timerCircle = document.getElementById("timer-circle");
   if (timerCircle) timerCircle.classList.remove("completed");
 }
 
-function startPreviewSound() {
+function startPreviewSound(): void {
   if (!previewAudio) {
     try {
       previewAudio = new Audio(getAudioSource());
@@ -247,19 +301,22 @@ function startPreviewSound() {
     }
   }
   if (previewAudio) {
-    previewAudio.volume = pomodoroSettings.volume !== undefined ? pomodoroSettings.volume : 0.8;
+    previewAudio.volume = pomodoroSettings.volume;
     previewAudio.currentTime = 0;
-    previewAudio.play().then(() => {
-      isPreviewPlaying = true;
-      updateSoundPreviewButton(true);
-    }).catch((err) => {
-      console.warn("Preview audio play error:", err);
-      showToast("音声の再生がブラウザによりブロックされました");
-    });
+    previewAudio
+      .play()
+      .then(() => {
+        isPreviewPlaying = true;
+        updateSoundPreviewButton(true);
+      })
+      .catch((err) => {
+        console.warn("Preview audio play error:", err);
+        showToast("音声の再生がブラウザによりブロックされました");
+      });
   }
 }
 
-function stopPreviewSound() {
+function stopPreviewSound(): void {
   if (previewAudio) {
     previewAudio.pause();
     previewAudio.currentTime = 0;
@@ -268,7 +325,7 @@ function stopPreviewSound() {
   updateSoundPreviewButton(false);
 }
 
-function togglePreviewSound() {
+function togglePreviewSound(): void {
   if (isPreviewPlaying) {
     stopPreviewSound();
   } else {
@@ -276,14 +333,14 @@ function togglePreviewSound() {
   }
 }
 
-function updateSoundPreviewButton(isPlaying) {
+function updateSoundPreviewButton(isPlaying: boolean): void {
   const previewText = document.getElementById("btn-sound-preview-text");
   if (previewText) {
     previewText.textContent = isPlaying ? "試聴を停止" : "テスト試聴";
   }
 }
 
-function savePomodoroSettings(showNotification = false) {
+function savePomodoroSettings(showNotification = false): void {
   localStorage.setItem(STORAGE_KEYS.POMODORO_SETTINGS, JSON.stringify(pomodoroSettings));
   updatePomodoroUI();
   if (showNotification) {
@@ -291,7 +348,7 @@ function savePomodoroSettings(showNotification = false) {
   }
 }
 
-function setPomodoroMinutes(minutes, updateTimerIfIdle = true) {
+function setPomodoroMinutes(minutes: number, updateTimerIfIdle = true): void {
   const m = sanitizePomodoroMinutes(minutes);
   pomodoroSettings.workMinutes = m;
   savePomodoroSettings(false);
@@ -301,25 +358,23 @@ function setPomodoroMinutes(minutes, updateTimerIfIdle = true) {
   }
 }
 
-function updatePomodoroUI() {
+function updatePomodoroUI(): void {
   const workMins = pomodoroSettings.workMinutes || 25;
 
-  // 1. タイマーモードボタンのラベル更新
   const pomodoroModeBtn = document.getElementById("btn-mode-pomodoro");
   if (pomodoroModeBtn) {
     pomodoroModeBtn.textContent = `ポモドーロ (${workMins}分)`;
   }
 
-  // 2. タイマーカードのクイックバー更新
   const quickBar = document.getElementById("pomodoro-quick-bar");
   if (quickBar) {
-    quickBar.style.display = timerMode === "pomodoro" ? "flex" : "none";
+    (quickBar as HTMLElement).style.display = timerMode === "pomodoro" ? "flex" : "none";
   }
 
-  const quickPresets = document.querySelectorAll(".pomo-preset-btn");
+  const quickPresets = document.querySelectorAll<HTMLButtonElement>(".pomo-preset-btn");
   let matchesQuickPreset = false;
   quickPresets.forEach((btn) => {
-    const mins = parseInt(btn.dataset.minutes, 10);
+    const mins = parseInt(btn.dataset["minutes"] ?? "", 10);
     if (mins === workMins) {
       btn.classList.add("active");
       matchesQuickPreset = true;
@@ -328,25 +383,24 @@ function updatePomodoroUI() {
     }
   });
 
-  const customInput = document.getElementById("pomo-quick-custom-input");
+  const customInput = document.getElementById("pomo-quick-custom-input") as HTMLInputElement | null;
   if (customInput) {
-    customInput.value = matchesQuickPreset ? "" : workMins;
+    customInput.value = matchesQuickPreset ? "" : String(workMins);
   }
 
-  // 3. 設定タブのポモドーロカード更新
   const settingBadge = document.getElementById("pomodoro-current-badge");
   if (settingBadge) {
     settingBadge.textContent = `現在: ${workMins}分`;
   }
 
-  const settingInput = document.getElementById("setting-pomo-minutes");
+  const settingInput = document.getElementById("setting-pomo-minutes") as HTMLInputElement | null;
   if (settingInput) {
-    settingInput.value = workMins;
+    settingInput.value = String(workMins);
   }
 
-  const settingPresets = document.querySelectorAll(".btn-pomo-setting-preset");
+  const settingPresets = document.querySelectorAll<HTMLButtonElement>(".btn-pomo-setting-preset");
   settingPresets.forEach((btn) => {
-    const mins = parseInt(btn.dataset.minutes, 10);
+    const mins = parseInt(btn.dataset["minutes"] ?? "", 10);
     if (mins === workMins) {
       btn.classList.add("active");
     } else {
@@ -354,26 +408,37 @@ function updatePomodoroUI() {
     }
   });
 
-  const soundCheckbox = document.getElementById("setting-pomo-sound-enabled");
+  const soundCheckbox = document.getElementById(
+    "setting-pomo-sound-enabled",
+  ) as HTMLInputElement | null;
   if (soundCheckbox) {
     soundCheckbox.checked = pomodoroSettings.soundEnabled !== false;
   }
 
-  const volumeSlider = document.getElementById("setting-pomo-volume");
+  const volumeSlider = document.getElementById(
+    "setting-pomo-volume",
+  ) as HTMLInputElement | null;
   const volumeText = document.getElementById("setting-pomo-volume-text");
-  const volPct = Math.round((pomodoroSettings.volume !== undefined ? pomodoroSettings.volume : 0.8) * 100);
+  const volPct = Math.round(pomodoroSettings.volume * 100);
   if (volumeSlider) {
-    volumeSlider.value = volPct;
+    volumeSlider.value = String(volPct);
   }
   if (volumeText) {
     volumeText.textContent = `${volPct}%`;
   }
 }
 
-// --- Goal Settings UI ---
-function updateGoalSettingsUI() {
-  const typeTasksRadio = document.querySelector('input[name="goal-type"][value="tasks"]');
-  const typeTimeRadio = document.querySelector('input[name="goal-type"][value="time"]');
+// -------------------------------------------------------
+// Goal Settings UI
+// -------------------------------------------------------
+
+function updateGoalSettingsUI(): void {
+  const typeTasksRadio = document.querySelector<HTMLInputElement>(
+    'input[name="goal-type"][value="tasks"]',
+  );
+  const typeTimeRadio = document.querySelector<HTMLInputElement>(
+    'input[name="goal-type"][value="time"]',
+  );
   const labelTasks = document.getElementById("goal-type-label-tasks");
   const labelTime = document.getElementById("goal-type-label-time");
   const tasksConfig = document.getElementById("goal-tasks-config");
@@ -383,35 +448,39 @@ function updateGoalSettingsUI() {
     if (typeTimeRadio) typeTimeRadio.checked = true;
     if (labelTime) labelTime.classList.add("active");
     if (labelTasks) labelTasks.classList.remove("active");
-    if (timeConfig) timeConfig.style.display = "block";
-    if (tasksConfig) tasksConfig.style.display = "none";
+    if (timeConfig) (timeConfig as HTMLElement).style.display = "block";
+    if (tasksConfig) (tasksConfig as HTMLElement).style.display = "none";
   } else {
     if (typeTasksRadio) typeTasksRadio.checked = true;
     if (labelTasks) labelTasks.classList.add("active");
     if (labelTime) labelTime.classList.remove("active");
-    if (tasksConfig) tasksConfig.style.display = "block";
-    if (timeConfig) timeConfig.style.display = "none";
+    if (tasksConfig) (tasksConfig as HTMLElement).style.display = "block";
+    if (timeConfig) (timeConfig as HTMLElement).style.display = "none";
   }
 
-  const modeAllRadio = document.querySelector('input[name="goal-task-mode"][value="all"]');
-  const modeCustomRadio = document.querySelector('input[name="goal-task-mode"][value="custom"]');
+  const modeAllRadio = document.querySelector<HTMLInputElement>(
+    'input[name="goal-task-mode"][value="all"]',
+  );
+  const modeCustomRadio = document.querySelector<HTMLInputElement>(
+    'input[name="goal-task-mode"][value="custom"]',
+  );
   const countRow = document.getElementById("goal-task-count-row");
-  const countInput = document.getElementById("goal-task-count-input");
+  const countInput = document.getElementById("goal-task-count-input") as HTMLInputElement | null;
 
   if (goalSettings.taskTargetMode === "custom") {
     if (modeCustomRadio) modeCustomRadio.checked = true;
-    if (countRow) countRow.style.display = "flex";
+    if (countRow) (countRow as HTMLElement).style.display = "flex";
   } else {
     if (modeAllRadio) modeAllRadio.checked = true;
-    if (countRow) countRow.style.display = "none";
+    if (countRow) (countRow as HTMLElement).style.display = "none";
   }
-  if (countInput) countInput.value = goalSettings.taskTargetCount || 5;
+  if (countInput) countInput.value = String(goalSettings.taskTargetCount || 5);
 
-  const hoursInput = document.getElementById("goal-time-hours-input");
-  const minsInput = document.getElementById("goal-time-mins-input");
+  const hoursInput = document.getElementById("goal-time-hours-input") as HTMLInputElement | null;
+  const minsInput = document.getElementById("goal-time-mins-input") as HTMLInputElement | null;
   const totalMins = goalSettings.timeTargetMinutes || 180;
-  if (hoursInput) hoursInput.value = Math.floor(totalMins / 60);
-  if (minsInput) minsInput.value = totalMins % 60;
+  if (hoursInput) hoursInput.value = String(Math.floor(totalMins / 60));
+  if (minsInput) minsInput.value = String(totalMins % 60);
 
   const badge = document.getElementById("current-goal-badge");
   if (badge) {
@@ -425,24 +494,24 @@ function updateGoalSettingsUI() {
   }
 }
 
-// --- Subject Management ---
-function addSubject(name, color) {
+// -------------------------------------------------------
+// Subject Management
+// -------------------------------------------------------
+
+function addSubject(name: string, color: string): boolean {
   const trimmed = name.trim();
   if (!trimmed) return false;
   if (subjects.some((s) => s.name.toLowerCase() === trimmed.toLowerCase())) {
     showToast(`「${trimmed}」は既に登録されています`);
     return false;
   }
-  subjects.push({
-    name: trimmed,
-    color: color || "#6366f1",
-  });
+  subjects.push({ name: trimmed, color: color || "#6366f1" });
   saveSubjects();
   showToast(`科目「${trimmed}」を追加しました！`);
   return true;
 }
 
-function deleteSubject(name) {
+function deleteSubject(name: string): void {
   showConfirmModal({
     title: "科目の削除",
     message: `「${name}」を科目一覧から削除しますか？\n（※過去に記録した学習ログやTODOのデータは保持されます）`,
@@ -456,30 +525,25 @@ function deleteSubject(name) {
   });
 }
 
-function resetSubjects() {
+function resetSubjects(): void {
   showConfirmModal({
     title: "科目の初期化",
     message: "科目一覧を初期の標準セットに戻しますか？\n（※追加したカスタム科目は削除されます）",
     confirmText: "初期状態に戻す",
     confirmClass: "btn-secondary",
     onConfirm: () => {
-      subjects = JSON.parse(JSON.stringify(DEFAULT_SUBJECTS));
+      subjects = JSON.parse(JSON.stringify(DEFAULT_SUBJECTS)) as Subject[];
       saveSubjects();
       showToast("科目一覧を初期状態に戻しました");
     },
   });
 }
 
-function renderSubjectSelects() {
-  const selectConfigs = [
-    { id: "timer-subject" },
-    { id: "todo-input-subject" },
-    { id: "modal-subject" },
-    { id: "edit-session-subject" },
-  ];
+function renderSubjectSelects(): void {
+  const selectIds = ["timer-subject", "todo-input-subject", "modal-subject", "edit-session-subject"];
 
-  selectConfigs.forEach(({ id }) => {
-    const select = document.getElementById(id);
+  selectIds.forEach((id) => {
+    const select = document.getElementById(id) as HTMLSelectElement | null;
     if (!select) return;
 
     const currentVal = select.value;
@@ -490,18 +554,18 @@ function renderSubjectSelects() {
     if (currentVal && subjects.some((s) => s.name === currentVal)) {
       select.value = currentVal;
     } else if (subjects.length > 0) {
-      select.value = subjects[0].name;
+      select.value = subjects[0]?.name ?? "";
     }
   });
 
-  const timerSub = document.getElementById("timer-subject");
+  const timerSub = document.getElementById("timer-subject") as HTMLSelectElement | null;
   const targetDisplay = document.getElementById("timer-target-display");
   if (timerSub && targetDisplay) {
     targetDisplay.textContent = `科目: ${timerSub.value || "未選択"}`;
   }
 }
 
-function renderSubjectManageList() {
+function renderSubjectManageList(): void {
   const container = document.getElementById("subject-chips-container");
   const countBadge = document.getElementById("subject-count-badge");
   if (!container) return;
@@ -525,11 +589,11 @@ function renderSubjectManageList() {
         <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </button>
     </div>
-  `
+  `,
     )
     .join("");
 
-  container.querySelectorAll(".btn-delete-subject").forEach((btn) => {
+  container.querySelectorAll<HTMLButtonElement>(".btn-delete-subject").forEach((btn) => {
     btn.addEventListener("click", () => {
       const name = btn.getAttribute("data-name");
       if (name) deleteSubject(name);
@@ -537,8 +601,11 @@ function renderSubjectManageList() {
   });
 }
 
-// --- View Updates ---
-function updateAllViews() {
+// -------------------------------------------------------
+// View Updates
+// -------------------------------------------------------
+
+function updateAllViews(): void {
   updateHeaderAndSummary();
   renderTodoList();
   renderTodaySessions();
@@ -548,24 +615,21 @@ function updateAllViews() {
   updateGoalSettingsUI();
 }
 
-function updateHeaderAndSummary() {
+function updateHeaderAndSummary(): void {
   const todayStr = getTodayStr();
   const headerDateTitle = document.getElementById("header-date-title");
   if (headerDateTitle) {
     headerDateTitle.textContent = formatDateDisplay(todayStr);
   }
 
-  // Calculate today's study time
   const todaySessions = sessions.filter((s) => s.date === todayStr);
-  const totalSeconds = todaySessions.reduce((sum, s) => sum + (s.durationSeconds || 0), 0);
+  const totalSeconds = calculateTotalSeconds(todaySessions);
 
-  // Tab Inside Summary: Today's Total Time
   const todayTotalTimeEl = document.getElementById("today-total-time");
   if (todayTotalTimeEl) {
     todayTotalTimeEl.textContent = formatHoursMinutes(totalSeconds);
   }
 
-  // Elements for goal display
   const goalIconEl = document.getElementById("today-goal-icon");
   const goalLabelEl = document.getElementById("today-goal-label");
   const goalRatioEl = document.getElementById("today-todo-ratio");
@@ -575,10 +639,8 @@ function updateHeaderAndSummary() {
   const goalBadgeEl = document.getElementById("today-goal-badge");
 
   const todayTodos = todos.filter((t) => !t.date || t.date === todayStr);
-  const completedCount = todayTodos.filter((t) => t.completed).length;
-  const totalTodoCount = todayTodos.length;
 
-  const goalProgress = calculateGoalProgress(goalSettings, todaySessions, todayTodos);
+  const goalProgress: GoalProgress = calculateGoalProgress(goalSettings, todaySessions, todayTodos);
   const { pct, isAchieved } = goalProgress;
 
   if (goalProgress.type === "time") {
@@ -599,27 +661,28 @@ function updateHeaderAndSummary() {
     }
   }
 
-  // 達成率とプログレスバーの更新
   if (percentEl) {
     percentEl.textContent = `${pct}%`;
   }
   if (progressBar) {
-    progressBar.style.width = `${Math.min(100, pct)}%`;
+    (progressBar as HTMLElement).style.width = `${Math.min(100, pct)}%`;
     if (isAchieved) {
-      progressBar.style.background = "linear-gradient(90deg, #10b981, #059669)";
+      (progressBar as HTMLElement).style.background = "linear-gradient(90deg, #10b981, #059669)";
     } else {
-      progressBar.style.background = "";
+      (progressBar as HTMLElement).style.background = "";
     }
   }
 
-  // 達成バッジ
   if (goalBadgeEl) {
-    goalBadgeEl.style.display = isAchieved ? "inline-block" : "none";
+    (goalBadgeEl as HTMLElement).style.display = isAchieved ? "inline-block" : "none";
   }
 }
 
-// --- TODO Management (一覧のみ表示) ---
-function renderTodoList() {
+// -------------------------------------------------------
+// TODO Management
+// -------------------------------------------------------
+
+function renderTodoList(): void {
   const container = document.getElementById("todo-list-container");
   if (!container) return;
 
@@ -661,17 +724,16 @@ function renderTodoList() {
         </button>
       </div>
     </div>
-  `
+  `,
     )
     .join("");
 
-  // Attach event handlers
-  container.querySelectorAll(".todo-item").forEach((el) => {
+  container.querySelectorAll<HTMLElement>(".todo-item").forEach((el) => {
     const id = el.getAttribute("data-id");
 
-    const checkbox = el.querySelector(".todo-checkbox");
+    const checkbox = el.querySelector<HTMLInputElement>(".todo-checkbox");
     checkbox?.addEventListener("change", (e) => {
-      toggleTodoCompleted(id, e.target.checked);
+      toggleTodoCompleted(id, (e.target as HTMLInputElement).checked);
     });
 
     const deleteBtn = el.querySelector(".btn-todo-delete");
@@ -681,13 +743,18 @@ function renderTodoList() {
 
     const timerLinkBtn = el.querySelector(".btn-timer-link");
     timerLinkBtn?.addEventListener("click", () => {
-      startTimerForTodo(id);
+      if (id) startTimerForTodo(id);
     });
   });
 }
 
-function addTodo(title, subject, estimatedMinutes, memo) {
-  const newTodo = {
+function addTodo(
+  title: string,
+  subject: string,
+  estimatedMinutes: string,
+  memo: string,
+): void {
+  const newTodo: Todo = {
     id: generateId(),
     title,
     subject: subject || "英語",
@@ -703,7 +770,7 @@ function addTodo(title, subject, estimatedMinutes, memo) {
   saveData();
 }
 
-function toggleTodoCompleted(id, completed) {
+function toggleTodoCompleted(id: string | null, completed: boolean): void {
   const target = todos.find((t) => t.id === id);
   if (target) {
     target.completed = completed;
@@ -712,13 +779,13 @@ function toggleTodoCompleted(id, completed) {
   }
 }
 
-function deleteTodo(id) {
+function deleteTodo(id: string | null): void {
   todos = todos.filter((t) => t.id !== id);
   saveData();
 }
 
-function updateTodoLinkOptions() {
-  const select = document.getElementById("timer-todo-link");
+function updateTodoLinkOptions(): void {
+  const select = document.getElementById("timer-todo-link") as HTMLSelectElement | null;
   if (!select) return;
 
   const currentVal = select.value;
@@ -735,19 +802,20 @@ function updateTodoLinkOptions() {
   }
 }
 
-// --- Timer Management ---
-function updateTimerDisplay() {
+// -------------------------------------------------------
+// Timer Management
+// -------------------------------------------------------
+
+function updateTimerDisplay(): void {
   const display = document.getElementById("timer-display");
   if (!display) return;
   display.textContent = formatDuration(timerSeconds);
 }
 
-function startTimer() {
+function startTimer(): void {
   if (timerRunning) return;
-  // オーディオアンロック (ユーザーの開始クリック契機)
   initAlarmAudio();
 
-  // ポモドーロモードで現在0秒なら、設定した集中時間から開始
   if (timerMode === "pomodoro" && timerSeconds <= 0) {
     timerSeconds = (pomodoroSettings.workMinutes || 25) * 60;
     updateTimerDisplay();
@@ -756,9 +824,9 @@ function startTimer() {
   timerRunning = true;
   sessionStartTime = new Date();
 
-  const startBtn = document.getElementById("btn-timer-start");
-  const stopBtn = document.getElementById("btn-timer-stop");
-  const alarmBtn = document.getElementById("btn-timer-alarm-stop");
+  const startBtn = document.getElementById("btn-timer-start") as HTMLButtonElement | null;
+  const stopBtn = document.getElementById("btn-timer-stop") as HTMLButtonElement | null;
+  const alarmBtn = document.getElementById("btn-timer-alarm-stop") as HTMLButtonElement | null;
   const timerCircle = document.getElementById("timer-circle");
   const chip = document.getElementById("timer-status-chip");
   const chipText = document.getElementById("timer-status-text");
@@ -776,8 +844,7 @@ function startTimer() {
   }
   if (chipText) chipText.textContent = "学習中";
 
-  // Update target label
-  const subjectSelect = document.getElementById("timer-subject");
+  const subjectSelect = document.getElementById("timer-subject") as HTMLSelectElement | null;
   const targetDisplay = document.getElementById("timer-target-display");
   if (subjectSelect && targetDisplay) {
     targetDisplay.textContent = `科目: ${subjectSelect.value}`;
@@ -790,12 +857,10 @@ function startTimer() {
       timerSeconds++;
       updateTimerDisplay();
     } else {
-      // Pomodoro countdown
       if (timerSeconds > 1) {
         timerSeconds--;
         updateTimerDisplay();
       } else {
-        // カウントダウンが0に到達！
         timerSeconds = 0;
         updateTimerDisplay();
         triggerPomodoroCompleted();
@@ -804,16 +869,16 @@ function startTimer() {
   }, 1000);
 }
 
-function triggerPomodoroCompleted() {
+function triggerPomodoroCompleted(): void {
   if (timerInterval) {
     clearInterval(timerInterval);
     timerInterval = null;
   }
   timerRunning = false;
 
-  const startBtn = document.getElementById("btn-timer-start");
-  const stopBtn = document.getElementById("btn-timer-stop");
-  const alarmBtn = document.getElementById("btn-timer-alarm-stop");
+  const startBtn = document.getElementById("btn-timer-start") as HTMLButtonElement | null;
+  const stopBtn = document.getElementById("btn-timer-stop") as HTMLButtonElement | null;
+  const alarmBtn = document.getElementById("btn-timer-alarm-stop") as HTMLButtonElement | null;
   const timerCircle = document.getElementById("timer-circle");
   const chip = document.getElementById("timer-status-chip");
   const chipText = document.getElementById("timer-status-text");
@@ -831,21 +896,20 @@ function triggerPomodoroCompleted() {
   }
   if (chipText) chipText.textContent = "🎉 集中完了";
 
-  // アラーム音再生
   playAlarmSound();
 
-  // 完了モーダル表示
   const modal = document.getElementById("alarm-modal");
   const completedText = document.getElementById("alarm-completed-minutes-text");
   if (completedText) {
     completedText.textContent = `${pomodoroSettings.workMinutes || 25}分`;
   }
   if (modal) {
-    modal.style.display = "flex";
+    (modal as HTMLElement).style.display = "flex";
   }
 }
 
-function stopTimer(isCompleted = false) {
+function stopTimer(isCompleted = false): void {
+  void isCompleted;
   if (!timerRunning && timerSeconds === 0 && !isAlarmRinging) return;
   if (timerInterval) {
     clearInterval(timerInterval);
@@ -853,9 +917,9 @@ function stopTimer(isCompleted = false) {
   }
   timerRunning = false;
 
-  const startBtn = document.getElementById("btn-timer-start");
-  const stopBtn = document.getElementById("btn-timer-stop");
-  const alarmBtn = document.getElementById("btn-timer-alarm-stop");
+  const startBtn = document.getElementById("btn-timer-start") as HTMLButtonElement | null;
+  const stopBtn = document.getElementById("btn-timer-stop") as HTMLButtonElement | null;
+  const alarmBtn = document.getElementById("btn-timer-alarm-stop") as HTMLButtonElement | null;
   const timerCircle = document.getElementById("timer-circle");
   const chip = document.getElementById("timer-status-chip");
   const chipText = document.getElementById("timer-status-text");
@@ -867,12 +931,10 @@ function stopTimer(isCompleted = false) {
   if (chip) chip.classList.remove("running");
   if (chipText) chipText.textContent = "待機中";
 
-  // 学習時間の計算
   let elapsed = 0;
   if (timerMode === "countup") {
     elapsed = timerSeconds;
   } else {
-    // ポモドーロモードの場合: 設定分数 - 残り秒数
     const totalPomoSec = (pomodoroSettings.workMinutes || 25) * 60;
     elapsed = Math.max(1, totalPomoSec - timerSeconds);
   }
@@ -882,8 +944,7 @@ function stopTimer(isCompleted = false) {
   }
 }
 
-// リセット機能（確実に初期値および停止状態を反映）
-function resetTimer() {
+function resetTimer(): void {
   if (timerInterval) {
     clearInterval(timerInterval);
     timerInterval = null;
@@ -896,9 +957,9 @@ function resetTimer() {
   timerSeconds = timerMode === "pomodoro" ? pomoSec : 0;
   updateTimerDisplay();
 
-  const startBtn = document.getElementById("btn-timer-start");
-  const stopBtn = document.getElementById("btn-timer-stop");
-  const alarmBtn = document.getElementById("btn-timer-alarm-stop");
+  const startBtn = document.getElementById("btn-timer-start") as HTMLButtonElement | null;
+  const stopBtn = document.getElementById("btn-timer-stop") as HTMLButtonElement | null;
+  const alarmBtn = document.getElementById("btn-timer-alarm-stop") as HTMLButtonElement | null;
   const timerCircle = document.getElementById("timer-circle");
   const chip = document.getElementById("timer-status-chip");
   const chipText = document.getElementById("timer-status-text");
@@ -916,19 +977,19 @@ function resetTimer() {
   }
   if (chipText) chipText.textContent = "待機中";
 
-  const subjectSelect = document.getElementById("timer-subject");
+  const subjectSelect = document.getElementById("timer-subject") as HTMLSelectElement | null;
   const targetDisplay = document.getElementById("timer-target-display");
   if (subjectSelect && targetDisplay) {
     targetDisplay.textContent = `科目: ${subjectSelect.value}`;
   }
 }
 
-function startTimerForTodo(todoId) {
+function startTimerForTodo(todoId: string): void {
   const target = todos.find((t) => t.id === todoId);
   if (!target) return;
 
-  const subjectSelect = document.getElementById("timer-subject");
-  const todoSelect = document.getElementById("timer-todo-link");
+  const subjectSelect = document.getElementById("timer-subject") as HTMLSelectElement | null;
+  const todoSelect = document.getElementById("timer-todo-link") as HTMLSelectElement | null;
 
   if (subjectSelect) subjectSelect.value = target.subject;
   if (todoSelect) todoSelect.value = target.id;
@@ -938,51 +999,60 @@ function startTimerForTodo(todoId) {
   startTimer();
 }
 
-// --- Record Modal ---
-function openRecordModal(durationSec = null) {
+// -------------------------------------------------------
+// Record Modal
+// -------------------------------------------------------
+
+function openRecordModal(durationSec: number | null = null): void {
   const modal = document.getElementById("record-modal");
   const durationText = document.getElementById("modal-duration-text");
-  const subjectInput = document.getElementById("modal-subject");
-  const memoInput = document.getElementById("modal-memo");
+  const subjectInput = document.getElementById("modal-subject") as HTMLSelectElement | null;
+  const memoInput = document.getElementById("modal-memo") as HTMLInputElement | null;
+  const subjectSelect = document.getElementById("timer-subject") as HTMLSelectElement | null;
 
-  const subjectSelect = document.getElementById("timer-subject");
-
-  currentSessionDurationSeconds = durationSec !== null ? durationSec : (
-    timerMode === "pomodoro" ? (pomodoroSettings.workMinutes || 25) * 60 : timerSeconds
-  );
+  currentSessionDurationSeconds =
+    durationSec !== null
+      ? durationSec
+      : timerMode === "pomodoro"
+        ? (pomodoroSettings.workMinutes || 25) * 60
+        : timerSeconds;
 
   if (durationText) durationText.textContent = formatDuration(currentSessionDurationSeconds);
   if (subjectInput && subjectSelect) subjectInput.value = subjectSelect.value;
   if (memoInput) memoInput.value = "";
-  if (modal) modal.style.display = "flex";
+  if (modal) (modal as HTMLElement).style.display = "flex";
 }
 
-function closeRecordModal() {
+function closeRecordModal(): void {
   const modal = document.getElementById("record-modal");
-  if (modal) modal.style.display = "none";
+  if (modal) (modal as HTMLElement).style.display = "none";
 }
 
-function saveCurrentSession() {
-  const subjectSelect = document.getElementById("modal-subject");
-  const todoSelect = document.getElementById("timer-todo-link");
-  const memoInput = document.getElementById("modal-memo");
+function saveCurrentSession(): void {
+  const subjectSelect = document.getElementById("modal-subject") as HTMLSelectElement | null;
+  const todoSelect = document.getElementById("timer-todo-link") as HTMLSelectElement | null;
+  const memoInput = document.getElementById("modal-memo") as HTMLInputElement | null;
 
-  const durationSec = currentSessionDurationSeconds > 0 ? currentSessionDurationSeconds : (
-    timerMode === "pomodoro" ? (pomodoroSettings.workMinutes || 25) * 60 : timerSeconds
-  );
+  const durationSec =
+    currentSessionDurationSeconds > 0
+      ? currentSessionDurationSeconds
+      : timerMode === "pomodoro"
+        ? (pomodoroSettings.workMinutes || 25) * 60
+        : timerSeconds;
 
   const endTime = new Date();
   const startTime = sessionStartTime || new Date(endTime.getTime() - durationSec * 1000);
 
-  const newSession = {
+  const newSession: StudySession = {
     id: generateId(),
     date: getTodayStr(),
     startTime: startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     endTime: endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     durationSeconds: durationSec,
     subject: subjectSelect ? subjectSelect.value : "その他自習",
-    todoId: todoSelect ? todoSelect.value : null,
-    memo: memoInput ? memoInput.value : "",
+    timerMode,
+    todoId: todoSelect?.value || null,
+    memo: memoInput?.value.trim() || "",
   };
 
   sessions.unshift(newSession);
@@ -992,37 +1062,40 @@ function saveCurrentSession() {
   resetTimer();
 }
 
-// --- Session Edit Modal (本日の記録の編集・破棄) ---
-function openEditSessionModal(sessionId) {
+// -------------------------------------------------------
+// Session Edit Modal
+// -------------------------------------------------------
+
+function openEditSessionModal(sessionId: string): void {
   const session = sessions.find((s) => s.id === sessionId);
   if (!session) return;
 
   const modal = document.getElementById("edit-session-modal");
-  const idInput = document.getElementById("edit-session-id");
-  const subjectSelect = document.getElementById("edit-session-subject");
-  const minutesInput = document.getElementById("edit-session-minutes");
-  const memoInput = document.getElementById("edit-session-memo");
+  const idInput = document.getElementById("edit-session-id") as HTMLInputElement | null;
+  const subjectSelect = document.getElementById("edit-session-subject") as HTMLSelectElement | null;
+  const minutesInput = document.getElementById("edit-session-minutes") as HTMLInputElement | null;
+  const memoInput = document.getElementById("edit-session-memo") as HTMLInputElement | null;
 
   if (idInput) idInput.value = session.id;
   if (subjectSelect) subjectSelect.value = session.subject;
-  if (minutesInput) minutesInput.value = Math.max(1, Math.round(session.durationSeconds / 60));
+  if (minutesInput) minutesInput.value = String(Math.max(1, Math.round(session.durationSeconds / 60)));
   if (memoInput) memoInput.value = session.memo || "";
 
-  if (modal) modal.style.display = "flex";
+  if (modal) (modal as HTMLElement).style.display = "flex";
 }
 
-function closeEditSessionModal() {
+function closeEditSessionModal(): void {
   const modal = document.getElementById("edit-session-modal");
-  if (modal) modal.style.display = "none";
+  if (modal) (modal as HTMLElement).style.display = "none";
 }
 
-function saveEditedSession() {
-  const idInput = document.getElementById("edit-session-id");
-  const subjectSelect = document.getElementById("edit-session-subject");
-  const minutesInput = document.getElementById("edit-session-minutes");
-  const memoInput = document.getElementById("edit-session-memo");
+function saveEditedSession(): void {
+  const idInput = document.getElementById("edit-session-id") as HTMLInputElement | null;
+  const subjectSelect = document.getElementById("edit-session-subject") as HTMLSelectElement | null;
+  const minutesInput = document.getElementById("edit-session-minutes") as HTMLInputElement | null;
+  const memoInput = document.getElementById("edit-session-memo") as HTMLInputElement | null;
 
-  if (!idInput || !idInput.value) return;
+  if (!idInput?.value) return;
 
   const target = sessions.find((s) => s.id === idInput.value);
   if (target) {
@@ -1036,7 +1109,7 @@ function saveEditedSession() {
   closeEditSessionModal();
 }
 
-function deleteSession(sessionId) {
+function deleteSession(sessionId: string): void {
   showConfirmModal({
     title: "学習記録の破棄",
     message: "この学習記録を破棄（削除）しますか？\n合計学習時間や達成率にも即時反映されます。",
@@ -1050,8 +1123,11 @@ function deleteSession(sessionId) {
   });
 }
 
-// --- Render Today Sessions (編集・破棄ボタン付き) ---
-function renderTodaySessions() {
+// -------------------------------------------------------
+// Render Today Sessions
+// -------------------------------------------------------
+
+function renderTodaySessions(): void {
   const container = document.getElementById("today-session-list");
   if (!container) return;
 
@@ -1082,53 +1158,55 @@ function renderTodaySessions() {
         </button>
       </div>
     </div>
-  `
+  `,
     )
     .join("");
 
-  // Attach event handlers
-  container.querySelectorAll(".btn-edit-session").forEach((btn) => {
+  container.querySelectorAll<HTMLButtonElement>(".btn-edit-session").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const el = btn.closest(".session-item-compact");
+      const el = btn.closest<HTMLElement>(".session-item-compact");
       const id = el?.getAttribute("data-id");
       if (id) openEditSessionModal(id);
     });
   });
 
-  container.querySelectorAll(".btn-delete-today-session").forEach((btn) => {
+  container.querySelectorAll<HTMLButtonElement>(".btn-delete-today-session").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const el = btn.closest(".session-item-compact");
+      const el = btn.closest<HTMLElement>(".session-item-compact");
       const id = el?.getAttribute("data-id");
       if (id) deleteSession(id);
     });
   });
 }
 
-// --- Subject Color Mapping ---
-const SUBJECT_COLORS = {
-  "英語": "#3b82f6",
-  "数学": "#ef4444",
-  "現代文": "#10b981",
+// -------------------------------------------------------
+// Subject Color Mapping
+// -------------------------------------------------------
+
+const SUBJECT_COLORS: Record<string, string> = {
+  英語: "#3b82f6",
+  数学: "#ef4444",
+  現代文: "#10b981",
   "古文・漢文": "#059669",
-  "物理": "#8b5cf6",
-  "化学": "#ec4899",
-  "生物": "#14b8a6",
-  "地学": "#f59e0b",
-  "日本史": "#d97706",
-  "世界史": "#b45309",
-  "地理": "#06b6d4",
+  物理: "#8b5cf6",
+  化学: "#ec4899",
+  生物: "#14b8a6",
+  地学: "#f59e0b",
+  日本史: "#d97706",
+  世界史: "#b45309",
+  地理: "#06b6d4",
   "公共・政経・倫理": "#6366f1",
-  "情報": "#0ea5e9",
+  情報: "#0ea5e9",
   "過去問・演習": "#f97316",
   "模試・復習": "#a855f7",
-  "その他自習": "#64748b",
+  その他自習: "#64748b",
 };
 
-function getSubjectColor(subject) {
+function getSubjectColor(subject: string | undefined): string {
   if (!subject) return "#64748b";
   const found = subjects.find((s) => s.name === subject);
-  if (found && found.color) return found.color;
-  if (SUBJECT_COLORS[subject]) return SUBJECT_COLORS[subject];
+  if (found?.color) return found.color;
+  if (SUBJECT_COLORS[subject]) return SUBJECT_COLORS[subject]!;
   let hash = 0;
   for (let i = 0; i < subject.length; i++) {
     hash = subject.charCodeAt(i) + ((hash << 5) - hash);
@@ -1137,58 +1215,45 @@ function getSubjectColor(subject) {
   return `hsl(${hue}, 65%, 52%)`;
 }
 
-// --- All-time Statistics & Subject Totals ---
-function renderAllTimeStats() {
+// -------------------------------------------------------
+// All-time Statistics
+// -------------------------------------------------------
+
+function renderAllTimeStats(): void {
   const totalSeconds = sessions.reduce((sum, s) => sum + (s.durationSeconds || 0), 0);
 
-  // 1. All-time Total Time
   const totalTimeEl = document.getElementById("all-time-total-time");
-  if (totalTimeEl) {
-    totalTimeEl.textContent = formatHoursMinutes(totalSeconds);
-  }
+  if (totalTimeEl) totalTimeEl.textContent = formatHoursMinutes(totalSeconds);
 
-  // 2. All-time Session Count
   const sessionCountEl = document.getElementById("all-time-session-count");
-  if (sessionCountEl) {
-    sessionCountEl.textContent = `総セッション: ${sessions.length} 回`;
-  }
+  if (sessionCountEl) sessionCountEl.textContent = `総セッション: ${sessions.length} 回`;
 
-  // 3. All-time Completed TODOs
   const completedTodoCount = todos.filter((t) => t.completed).length;
   const todoCountEl = document.getElementById("all-time-todo-count");
-  if (todoCountEl) {
-    todoCountEl.textContent = `${completedTodoCount} 個`;
-  }
+  if (todoCountEl) todoCountEl.textContent = `${completedTodoCount} 個`;
 
-  // 4. Unique Active Days
   const activeDaysSet = new Set(sessions.map((s) => s.date).filter(Boolean));
   const activeDaysEl = document.getElementById("all-time-active-days");
-  if (activeDaysEl) {
-    activeDaysEl.textContent = `記録日数: ${activeDaysSet.size} 日`;
-  }
+  if (activeDaysEl) activeDaysEl.textContent = `記録日数: ${activeDaysSet.size} 日`;
 
-  // 5. Subject Totals Aggregation
   const subjectAggregates = aggregateSessionsBySubject(sessions);
 
-  // Top Subject
   const topSubEl = document.getElementById("all-time-top-subject");
   const topSubTimeEl = document.getElementById("all-time-top-subject-time");
   if (subjectAggregates.length > 0) {
     const topItem = subjectAggregates[0];
-    if (topSubEl) topSubEl.textContent = topItem.subject;
-    if (topSubTimeEl) topSubTimeEl.textContent = formatHoursMinutes(topItem.seconds);
+    if (topSubEl) topSubEl.textContent = topItem?.subject ?? "-";
+    if (topSubTimeEl) topSubTimeEl.textContent = formatHoursMinutes(topItem?.seconds ?? 0);
   } else {
     if (topSubEl) topSubEl.textContent = "-";
     if (topSubTimeEl) topSubTimeEl.textContent = "-";
   }
 
-  // Subject Count Badge
   const breakdownCountEl = document.getElementById("subject-breakdown-count");
   if (breakdownCountEl) {
     breakdownCountEl.textContent = `${subjectAggregates.length} 科目記録中`;
   }
 
-  // Subject Breakdown List
   const listContainer = document.getElementById("subject-totals-list");
   if (listContainer) {
     if (subjectAggregates.length === 0) {
@@ -1222,11 +1287,14 @@ function renderAllTimeStats() {
   }
 }
 
-// --- History & Past Data View ---
-function renderHistoryView() {
+// -------------------------------------------------------
+// History & Past Data View
+// -------------------------------------------------------
+
+function renderHistoryView(): void {
   renderAllTimeStats();
 
-  const dateInput = document.getElementById("history-date-picker");
+  const dateInput = document.getElementById("history-date-picker") as HTMLInputElement | null;
   if (dateInput && dateInput.value !== selectedHistoryDate) {
     dateInput.value = selectedHistoryDate;
   }
@@ -1234,37 +1302,34 @@ function renderHistoryView() {
   const selectedSessions = sessions.filter((s) => s.date === selectedHistoryDate);
   const totalSeconds = selectedSessions.reduce((sum, s) => sum + (s.durationSeconds || 0), 0);
 
-  // Summary Cards
   const totalTimeEl = document.getElementById("history-total-time");
   const sessionCountEl = document.getElementById("history-session-count");
   if (totalTimeEl) totalTimeEl.textContent = formatHoursMinutes(totalSeconds);
   if (sessionCountEl) sessionCountEl.textContent = `${selectedSessions.length} セッション`;
 
-  // Top Subject
   const historySubjectAggs = aggregateSessionsBySubject(selectedSessions);
   const topSubEl = document.getElementById("history-top-subject");
   const topSubTimeEl = document.getElementById("history-top-subject-time");
   if (historySubjectAggs.length > 0) {
     const topSub = historySubjectAggs[0];
-    if (topSubEl) topSubEl.textContent = topSub.subject;
-    if (topSubTimeEl) topSubTimeEl.textContent = formatHoursMinutes(topSub.seconds);
+    if (topSubEl) topSubEl.textContent = topSub?.subject ?? "-";
+    if (topSubTimeEl) topSubTimeEl.textContent = formatHoursMinutes(topSub?.seconds ?? 0);
   } else {
     if (topSubEl) topSubEl.textContent = "-";
     if (topSubTimeEl) topSubTimeEl.textContent = "-";
   }
 
-  // TODOs for this date
   const selectedTodos = todos.filter((t) => t.date === selectedHistoryDate);
   const doneTodos = selectedTodos.filter((t) => t.completed);
   const todoCountEl = document.getElementById("history-todo-count");
   const todoRateEl = document.getElementById("history-todo-rate");
   if (todoCountEl) todoCountEl.textContent = `${doneTodos.length} / ${selectedTodos.length}`;
   if (todoRateEl) {
-    const rate = selectedTodos.length > 0 ? Math.round((doneTodos.length / selectedTodos.length) * 100) : 0;
+    const rate =
+      selectedTodos.length > 0 ? Math.round((doneTodos.length / selectedTodos.length) * 100) : 0;
     todoRateEl.textContent = `達成率 ${rate}%`;
   }
 
-  // Sessions Table
   const tbody = document.getElementById("history-sessions-tbody");
   if (tbody) {
     if (selectedSessions.length === 0) {
@@ -1292,14 +1357,14 @@ function renderHistoryView() {
         })
         .join("");
 
-      tbody.querySelectorAll(".btn-history-edit-session").forEach((btn) => {
+      tbody.querySelectorAll<HTMLButtonElement>(".btn-history-edit-session").forEach((btn) => {
         btn.addEventListener("click", () => {
           const sid = btn.getAttribute("data-id");
           if (sid) openEditSessionModal(sid);
         });
       });
 
-      tbody.querySelectorAll(".btn-delete-session").forEach((btn) => {
+      tbody.querySelectorAll<HTMLButtonElement>(".btn-delete-session").forEach((btn) => {
         btn.addEventListener("click", () => {
           const sid = btn.getAttribute("data-id");
           if (sid) deleteSession(sid);
@@ -1308,7 +1373,6 @@ function renderHistoryView() {
     }
   }
 
-  // History TODO list
   const historyTodoList = document.getElementById("history-todos-list");
   if (historyTodoList) {
     if (selectedTodos.length === 0) {
@@ -1327,7 +1391,7 @@ function renderHistoryView() {
             </div>
           </div>
         </div>
-      `
+      `,
         )
         .join("");
     }
@@ -1336,18 +1400,21 @@ function renderHistoryView() {
   renderWeeklyTrend();
 }
 
-function renderWeeklyTrend() {
+function renderWeeklyTrend(): void {
   const chartData = getWeeklyChartData(sessions, selectedHistoryDate);
   renderWeeklyChart("weekly-chart", chartData);
 }
 
-// --- Navigation & Tabs ---
-function switchTab(tabName) {
+// -------------------------------------------------------
+// Navigation & Tabs
+// -------------------------------------------------------
+
+function switchTab(tabName: string): void {
   activeTab = tabName;
-  document.querySelectorAll(".nav-item").forEach((btn) => {
+  document.querySelectorAll<HTMLElement>(".nav-item").forEach((btn) => {
     btn.classList.toggle("active", btn.getAttribute("data-tab") === tabName);
   });
-  document.querySelectorAll(".tab-pane").forEach((pane) => {
+  document.querySelectorAll<HTMLElement>(".tab-pane").forEach((pane) => {
     pane.classList.toggle("active", pane.id === `tab-${tabName}`);
   });
 
@@ -1361,8 +1428,11 @@ function switchTab(tabName) {
   }
 }
 
-// --- Export & Import & Backup ---
-function exportDataAsJSON() {
+// -------------------------------------------------------
+// Export & Import & Backup
+// -------------------------------------------------------
+
+function exportDataAsJSON(): void {
   const payload = {
     appName: "StudyFlow",
     version: "1.4.0",
@@ -1374,7 +1444,8 @@ function exportDataAsJSON() {
     pomodoroSettings,
   };
 
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
+  const dataStr =
+    "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
   const downloadAnchor = document.createElement("a");
   downloadAnchor.setAttribute("href", dataStr);
   downloadAnchor.setAttribute("download", `studyflow_backup_${getTodayStr()}.json`);
@@ -1384,16 +1455,22 @@ function exportDataAsJSON() {
   showToast("バックアップJSONをエクスポートしました");
 }
 
-function importDataFromJSON(file) {
+function importDataFromJSON(file: File): void {
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
-      const data = JSON.parse(e.target.result);
+      const data = JSON.parse((e.target as FileReader).result as string) as {
+        todos?: unknown[];
+        sessions?: unknown[];
+        subjects?: unknown[];
+        goalSettings?: Partial<GoalSettings>;
+        pomodoroSettings?: Partial<PomodoroSettings>;
+      };
       if (Array.isArray(data.todos) && Array.isArray(data.sessions)) {
-        todos = data.todos;
-        sessions = data.sessions;
+        todos = data.todos as Todo[];
+        sessions = data.sessions as StudySession[];
         if (Array.isArray(data.subjects) && data.subjects.length > 0) {
-          subjects = data.subjects;
+          subjects = data.subjects as Subject[];
           saveSubjects();
         } else {
           saveData();
@@ -1414,17 +1491,17 @@ function importDataFromJSON(file) {
         showToast("無効なバックアップファイル形式です");
       }
     } catch (err) {
-      showToast("JSONファイルの解析に失敗しました: " + err.message);
+      showToast("JSONファイルの解析に失敗しました: " + (err as Error).message);
     }
   };
   reader.readAsText(file);
 }
 
-function loadSampleDemoData() {
+function loadSampleDemoData(): void {
   const today = new Date();
-  const sampleTodos = [];
-  const sampleSessions = [];
-  const examTasks = [
+  const sampleTodos: Todo[] = [];
+  const sampleSessions: StudySession[] = [];
+  const examTasks: Array<{ title: string; subject: string; mins: number }> = [
     { title: "ターゲット1900 100語暗記・確認テスト", subject: "英語", mins: 45 },
     { title: "共通テスト過去問 数学II・B 微積分", subject: "数学", mins: 60 },
     { title: "現代文 キーワード読解 2章", subject: "現代文", mins: 40 },
@@ -1437,10 +1514,10 @@ function loadSampleDemoData() {
   for (let i = 6; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split("T")[0];
+    const dateStr = d.toISOString().split("T")[0] || getTodayStr();
 
-    const task = examTasks[i % examTasks.length];
-    const t1 = {
+    const task = examTasks[i % examTasks.length]!;
+    const t1: Todo = {
       id: generateId(),
       title: task.title,
       subject: task.subject,
@@ -1451,7 +1528,7 @@ function loadSampleDemoData() {
       createdAt: d.toISOString(),
       date: dateStr,
     };
-    const t2 = {
+    const t2: Todo = {
       id: generateId(),
       title: "古文単語315 1〜100確認テスト",
       subject: "古文・漢文",
@@ -1472,6 +1549,7 @@ function loadSampleDemoData() {
       endTime: "15:45",
       durationSeconds: sessionDuration,
       subject: task.subject,
+      timerMode: "countup",
       todoId: t1.id,
       memo: "集中して演習完了",
     });
@@ -1483,7 +1561,7 @@ function loadSampleDemoData() {
   showToast("受験生向けのサンプルデータを投入しました！");
 }
 
-function clearAllData() {
+function clearAllData(): void {
   showConfirmModal({
     title: "全データの初期化",
     message: "本当にすべてのTODOおよび学習ログを削除しますか？\nこの操作は取り消せません。",
@@ -1498,9 +1576,10 @@ function clearAllData() {
   });
 }
 
+// -------------------------------------------------------
+// DOMContentLoaded — Initialization & Event Listeners
+// -------------------------------------------------------
 
-
-// --- Initialization & Event Listeners ---
 document.addEventListener("DOMContentLoaded", () => {
   initTheme();
   loadData();
@@ -1513,33 +1592,35 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-theme-toggle")?.addEventListener("click", toggleTheme);
 
   // Tab navigation
-  document.querySelectorAll(".nav-item").forEach((btn) => {
+  document.querySelectorAll<HTMLElement>(".nav-item").forEach((btn) => {
     btn.addEventListener("click", () => {
-      switchTab(btn.getAttribute("data-tab"));
+      switchTab(btn.getAttribute("data-tab") ?? "tracker");
     });
   });
 
   // Goal Settings Controls
   const goalForm = document.getElementById("goal-settings-form");
-  const goalTypeRadios = document.querySelectorAll('input[name="goal-type"]');
-  const goalTaskModeRadios = document.querySelectorAll('input[name="goal-task-mode"]');
+  const goalTypeRadios = document.querySelectorAll<HTMLInputElement>('input[name="goal-type"]');
+  const goalTaskModeRadios = document.querySelectorAll<HTMLInputElement>(
+    'input[name="goal-task-mode"]',
+  );
 
   goalTypeRadios.forEach((radio) => {
     radio.addEventListener("change", (e) => {
-      const type = e.target.value;
+      const type = (e.target as HTMLInputElement).value;
       const tasksConfig = document.getElementById("goal-tasks-config");
       const timeConfig = document.getElementById("goal-time-config");
       const labelTasks = document.getElementById("goal-type-label-tasks");
       const labelTime = document.getElementById("goal-type-label-time");
 
       if (type === "time") {
-        if (timeConfig) timeConfig.style.display = "block";
-        if (tasksConfig) tasksConfig.style.display = "none";
+        if (timeConfig) (timeConfig as HTMLElement).style.display = "block";
+        if (tasksConfig) (tasksConfig as HTMLElement).style.display = "none";
         if (labelTime) labelTime.classList.add("active");
         if (labelTasks) labelTasks.classList.remove("active");
       } else {
-        if (tasksConfig) tasksConfig.style.display = "block";
-        if (timeConfig) timeConfig.style.display = "none";
+        if (tasksConfig) (tasksConfig as HTMLElement).style.display = "block";
+        if (timeConfig) (timeConfig as HTMLElement).style.display = "none";
         if (labelTasks) labelTasks.classList.add("active");
         if (labelTime) labelTime.classList.remove("active");
       }
@@ -1550,33 +1631,43 @@ document.addEventListener("DOMContentLoaded", () => {
     radio.addEventListener("change", (e) => {
       const countRow = document.getElementById("goal-task-count-row");
       if (countRow) {
-        countRow.style.display = e.target.value === "custom" ? "flex" : "none";
+        (countRow as HTMLElement).style.display =
+          (e.target as HTMLInputElement).value === "custom" ? "flex" : "none";
       }
     });
   });
 
-  document.querySelectorAll(".btn-goal-preset").forEach((btn) => {
+  document.querySelectorAll<HTMLButtonElement>(".btn-goal-preset").forEach((btn) => {
     btn.addEventListener("click", () => {
       const mins = Number(btn.getAttribute("data-minutes") || 180);
-      const hoursInput = document.getElementById("goal-time-hours-input");
-      const minsInput = document.getElementById("goal-time-mins-input");
-      if (hoursInput) hoursInput.value = Math.floor(mins / 60);
-      if (minsInput) minsInput.value = mins % 60;
+      const hoursInput = document.getElementById("goal-time-hours-input") as HTMLInputElement | null;
+      const minsInput = document.getElementById("goal-time-mins-input") as HTMLInputElement | null;
+      if (hoursInput) hoursInput.value = String(Math.floor(mins / 60));
+      if (minsInput) minsInput.value = String(mins % 60);
     });
   });
 
   goalForm?.addEventListener("submit", (e) => {
     e.preventDefault();
-    const type = document.querySelector('input[name="goal-type"]:checked')?.value || "tasks";
-    const taskMode = document.querySelector('input[name="goal-task-mode"]:checked')?.value || "all";
-    const count = Number(document.getElementById("goal-task-count-input")?.value || 5);
-    const hours = Number(document.getElementById("goal-time-hours-input")?.value || 0);
-    const mins = Number(document.getElementById("goal-time-mins-input")?.value || 0);
+    const type =
+      document.querySelector<HTMLInputElement>('input[name="goal-type"]:checked')?.value || "tasks";
+    const taskMode =
+      document.querySelector<HTMLInputElement>('input[name="goal-task-mode"]:checked')?.value ||
+      "all";
+    const count = Number(
+      (document.getElementById("goal-task-count-input") as HTMLInputElement | null)?.value || 5,
+    );
+    const hours = Number(
+      (document.getElementById("goal-time-hours-input") as HTMLInputElement | null)?.value || 0,
+    );
+    const mins = Number(
+      (document.getElementById("goal-time-mins-input") as HTMLInputElement | null)?.value || 0,
+    );
     const totalMinutes = Math.max(5, hours * 60 + mins);
 
     goalSettings = {
-      type,
-      taskTargetMode: taskMode,
+      type: type as "tasks" | "time",
+      taskTargetMode: taskMode as "all" | "custom",
       taskTargetCount: Math.max(1, count),
       timeTargetMinutes: totalMinutes,
     };
@@ -1585,25 +1676,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Subject Management Controls
   const subjectForm = document.getElementById("subject-form");
-  const subjectNameInput = document.getElementById("subject-input-name");
-  const subjectColorInput = document.getElementById("subject-input-color");
+  const subjectNameInput = document.getElementById("subject-input-name") as HTMLInputElement | null;
+  const subjectColorInput = document.getElementById(
+    "subject-input-color",
+  ) as HTMLInputElement | null;
   const subjectHexLabel = document.getElementById("subject-color-hex");
 
   subjectColorInput?.addEventListener("input", (e) => {
-    const val = e.target.value;
+    const val = (e.target as HTMLInputElement).value;
     if (subjectHexLabel) subjectHexLabel.textContent = val;
-    document.querySelectorAll(".color-dot-btn").forEach((btn) => {
+    document.querySelectorAll<HTMLButtonElement>(".color-dot-btn").forEach((btn) => {
       btn.classList.toggle("active", btn.getAttribute("data-color") === val);
     });
   });
 
-  document.querySelectorAll(".color-dot-btn").forEach((btn) => {
+  document.querySelectorAll<HTMLButtonElement>(".color-dot-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const color = btn.getAttribute("data-color");
       if (color && subjectColorInput) {
         subjectColorInput.value = color;
         if (subjectHexLabel) subjectHexLabel.textContent = color;
-        document.querySelectorAll(".color-dot-btn").forEach((b) => b.classList.remove("active"));
+        document
+          .querySelectorAll<HTMLButtonElement>(".color-dot-btn")
+          .forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
       }
     });
@@ -1611,8 +1706,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   subjectForm?.addEventListener("submit", (e) => {
     e.preventDefault();
-    if (subjectNameInput && subjectNameInput.value.trim()) {
-      const added = addSubject(subjectNameInput.value.trim(), subjectColorInput?.value || "#6366f1");
+    if (subjectNameInput?.value.trim()) {
+      const added = addSubject(
+        subjectNameInput.value.trim(),
+        subjectColorInput?.value || "#6366f1",
+      );
       if (added) {
         subjectNameInput.value = "";
       }
@@ -1622,17 +1720,20 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-reset-subjects")?.addEventListener("click", resetSubjects);
 
   // Confirm Modal controls
-  document.getElementById("confirm-modal-btn-cancel")?.addEventListener("click", closeConfirmModal);
-  document.getElementById("confirm-modal-btn-confirm")?.addEventListener("click", () => {
-    if (confirmModalCallback) {
-      confirmModalCallback();
-    }
-    closeConfirmModal();
-  });
+  document
+    .getElementById("confirm-modal-btn-cancel")
+    ?.addEventListener("click", closeConfirmModal);
+  document
+    .getElementById("confirm-modal-btn-confirm")
+    ?.addEventListener("click", () => {
+      if (confirmModalCallback) {
+        confirmModalCallback();
+      }
+      closeConfirmModal();
+    });
 
-  // Close confirm modal when clicking backdrop
   document.getElementById("confirm-modal")?.addEventListener("click", (e) => {
-    if (e.target.id === "confirm-modal") {
+    if ((e.target as HTMLElement).id === "confirm-modal") {
       closeConfirmModal();
     }
   });
@@ -1645,80 +1746,84 @@ document.addEventListener("DOMContentLoaded", () => {
   // Timer mode toggle
   document.getElementById("btn-mode-countup")?.addEventListener("click", () => {
     timerMode = "countup";
-    document.getElementById("btn-mode-countup").classList.add("active");
-    document.getElementById("btn-mode-pomodoro").classList.remove("active");
+    document.getElementById("btn-mode-countup")?.classList.add("active");
+    document.getElementById("btn-mode-pomodoro")?.classList.remove("active");
     updatePomodoroUI();
     resetTimer();
   });
   document.getElementById("btn-mode-pomodoro")?.addEventListener("click", () => {
     timerMode = "pomodoro";
-    document.getElementById("btn-mode-pomodoro").classList.add("active");
-    document.getElementById("btn-mode-countup").classList.remove("active");
+    document.getElementById("btn-mode-pomodoro")?.classList.add("active");
+    document.getElementById("btn-mode-countup")?.classList.remove("active");
     updatePomodoroUI();
     resetTimer();
   });
 
-  // Pomodoro Quick Bar (Timer Card) Presets & Custom Input
-  document.querySelectorAll(".pomo-preset-btn").forEach((btn) => {
+  // Pomodoro Quick Bar Presets & Custom Input
+  document.querySelectorAll<HTMLButtonElement>(".pomo-preset-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const mins = parseInt(btn.getAttribute("data-minutes"), 10);
+      const mins = parseInt(btn.getAttribute("data-minutes") ?? "", 10);
       if (mins) {
         setPomodoroMinutes(mins);
       }
     });
   });
 
-  const quickCustomInput = document.getElementById("pomo-quick-custom-input");
+  const quickCustomInput = document.getElementById(
+    "pomo-quick-custom-input",
+  ) as HTMLInputElement | null;
   quickCustomInput?.addEventListener("change", (e) => {
-    const val = parseInt(e.target.value, 10);
+    const val = parseInt((e.target as HTMLInputElement).value, 10);
     if (val && val >= 1 && val <= 180) {
       setPomodoroMinutes(val);
     }
   });
 
-  // Alarm ringing stop button on Timer Card
   document.getElementById("btn-timer-alarm-stop")?.addEventListener("click", () => {
     stopAlarmSound();
     const modal = document.getElementById("alarm-modal");
-    if (modal) modal.style.display = "none";
+    if (modal) (modal as HTMLElement).style.display = "none";
     openRecordModal((pomodoroSettings.workMinutes || 25) * 60);
   });
 
-  // Pomodoro Settings Card in Settings Tab
-  const settingPomoInput = document.getElementById("setting-pomo-minutes");
+  const settingPomoInput = document.getElementById(
+    "setting-pomo-minutes",
+  ) as HTMLInputElement | null;
   settingPomoInput?.addEventListener("change", (e) => {
-    const val = parseInt(e.target.value, 10);
+    const val = parseInt((e.target as HTMLInputElement).value, 10);
     if (val && val >= 1 && val <= 180) {
       setPomodoroMinutes(val, false);
     }
   });
 
-  document.querySelectorAll(".btn-pomo-setting-preset").forEach((btn) => {
+  document.querySelectorAll<HTMLButtonElement>(".btn-pomo-setting-preset").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const mins = parseInt(btn.getAttribute("data-minutes"), 10);
+      const mins = parseInt(btn.getAttribute("data-minutes") ?? "", 10);
       if (mins) {
         setPomodoroMinutes(mins, false);
       }
     });
   });
 
-  // Sound Preview Button
   document.getElementById("btn-sound-preview")?.addEventListener("click", togglePreviewSound);
 
-  // Sound Options (Toggle & Volume)
-  document.getElementById("setting-pomo-sound-enabled")?.addEventListener("change", (e) => {
-    pomodoroSettings.soundEnabled = e.target.checked;
-    savePomodoroSettings(false);
-  });
+  document
+    .getElementById("setting-pomo-sound-enabled")
+    ?.addEventListener("change", (e) => {
+      pomodoroSettings.soundEnabled = (e.target as HTMLInputElement).checked;
+      savePomodoroSettings(false);
+    });
 
-  const volumeSlider = document.getElementById("setting-pomo-volume");
+  const volumeSlider = document.getElementById(
+    "setting-pomo-volume",
+  ) as HTMLInputElement | null;
   volumeSlider?.addEventListener("input", (e) => {
-    const vol = parseInt(e.target.value, 10) / 100;
+    const vol = parseInt((e.target as HTMLInputElement).value, 10) / 100;
     pomodoroSettings.volume = vol;
     if (alarmAudio) alarmAudio.volume = vol;
     if (previewAudio) previewAudio.volume = vol;
     const volText = document.getElementById("setting-pomo-volume-text");
-    if (volText) volText.textContent = `${e.target.value}%`;
+    if (volText) volText.textContent = `${(e.target as HTMLInputElement).value}%`;
   });
   volumeSlider?.addEventListener("change", () => {
     savePomodoroSettings(false);
@@ -1729,42 +1834,39 @@ document.addEventListener("DOMContentLoaded", () => {
     savePomodoroSettings(true);
   });
 
-  // Modal 4: Pomodoro Completed Alarm Modal
   document.getElementById("alarm-modal-btn-record")?.addEventListener("click", () => {
     stopAlarmSound();
     const modal = document.getElementById("alarm-modal");
-    if (modal) modal.style.display = "none";
+    if (modal) (modal as HTMLElement).style.display = "none";
     openRecordModal((pomodoroSettings.workMinutes || 25) * 60);
   });
 
   document.getElementById("alarm-modal-btn-dismiss")?.addEventListener("click", () => {
     stopAlarmSound();
     const modal = document.getElementById("alarm-modal");
-    if (modal) modal.style.display = "none";
+    if (modal) (modal as HTMLElement).style.display = "none";
     resetTimer();
   });
 
-  // Keyboard shortcut to dismiss alarm if ringing
   window.addEventListener("keydown", (e) => {
     if (isAlarmRinging) {
       if (e.key === "Escape") {
         stopAlarmSound();
         const modal = document.getElementById("alarm-modal");
-        if (modal) modal.style.display = "none";
+        if (modal) (modal as HTMLElement).style.display = "none";
         resetTimer();
       } else if (e.key === "Enter" || e.key === " ") {
         stopAlarmSound();
         const modal = document.getElementById("alarm-modal");
-        if (modal) modal.style.display = "none";
+        if (modal) (modal as HTMLElement).style.display = "none";
         openRecordModal((pomodoroSettings.workMinutes || 25) * 60);
       }
     }
   });
 
-  // Subject change in timer
   document.getElementById("timer-subject")?.addEventListener("change", (e) => {
     const targetDisplay = document.getElementById("timer-target-display");
-    if (targetDisplay) targetDisplay.textContent = `科目: ${e.target.value}`;
+    if (targetDisplay) targetDisplay.textContent = `科目: ${(e.target as HTMLSelectElement).value}`;
   });
 
   // Modal 1 controls (Record)
@@ -1775,19 +1877,30 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("modal-btn-save")?.addEventListener("click", saveCurrentSession);
 
   // Modal 2 controls (Edit Session)
-  document.getElementById("edit-session-btn-cancel")?.addEventListener("click", closeEditSessionModal);
+  document
+    .getElementById("edit-session-btn-cancel")
+    ?.addEventListener("click", closeEditSessionModal);
   document.getElementById("edit-session-btn-save")?.addEventListener("click", saveEditedSession);
 
   // TODO Form
   document.getElementById("todo-form")?.addEventListener("submit", (e) => {
     e.preventDefault();
-    const titleInput = document.getElementById("todo-input-title");
-    const subjectInput = document.getElementById("todo-input-subject");
-    const estimateInput = document.getElementById("todo-input-estimate");
-    const memoInput = document.getElementById("todo-input-memo");
+    const titleInput = document.getElementById("todo-input-title") as HTMLInputElement | null;
+    const subjectInput = document.getElementById(
+      "todo-input-subject",
+    ) as HTMLSelectElement | null;
+    const estimateInput = document.getElementById(
+      "todo-input-estimate",
+    ) as HTMLInputElement | null;
+    const memoInput = document.getElementById("todo-input-memo") as HTMLInputElement | null;
 
-    if (titleInput && titleInput.value.trim()) {
-      addTodo(titleInput.value.trim(), subjectInput.value, estimateInput.value, memoInput.value.trim());
+    if (titleInput?.value.trim()) {
+      addTodo(
+        titleInput.value.trim(),
+        subjectInput?.value ?? "",
+        estimateInput?.value ?? "",
+        memoInput?.value.trim() ?? "",
+      );
       titleInput.value = "";
       if (memoInput) memoInput.value = "";
       if (estimateInput) estimateInput.value = "";
@@ -1795,10 +1908,13 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // History Date Picker Controls
-  const datePicker = document.getElementById("history-date-picker");
+  const datePicker = document.getElementById(
+    "history-date-picker",
+  ) as HTMLInputElement | null;
   datePicker?.addEventListener("change", (e) => {
-    if (e.target.value) {
-      selectedHistoryDate = e.target.value;
+    const val = (e.target as HTMLInputElement).value;
+    if (val) {
+      selectedHistoryDate = val;
       renderHistoryView();
     }
   });
@@ -1831,10 +1947,13 @@ document.addEventListener("DOMContentLoaded", () => {
   // Backup & Restore
   document.getElementById("btn-export-json")?.addEventListener("click", exportDataAsJSON);
 
-  const importInput = document.getElementById("import-json-input");
+  const importInput = document.getElementById(
+    "import-json-input",
+  ) as HTMLInputElement | null;
   importInput?.addEventListener("change", (e) => {
-    if (e.target.files && e.target.files[0]) {
-      importDataFromJSON(e.target.files[0]);
+    const files = (e.target as HTMLInputElement).files;
+    if (files?.[0]) {
+      importDataFromJSON(files[0]);
     }
   });
 
