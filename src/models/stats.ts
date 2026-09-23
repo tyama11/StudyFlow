@@ -27,7 +27,7 @@ export function calculateTotalSeconds(sessions: StudySession[] | null | undefine
 export function calculateGoalProgress(
   goalSettings: GoalSettings,
   todaySessions: StudySession[] = [],
-  todayTodos: Pick<Todo, "completed">[] = [],
+  todayTodos: Array<Pick<Todo, "completed">> = [],
 ): GoalProgress {
   const totalSeconds = calculateTotalSeconds(todaySessions);
   const completedCount = todayTodos.filter((t) => t.completed).length;

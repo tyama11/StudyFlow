@@ -34,6 +34,7 @@ export default tseslint.config(
       "no-console": "off",
       "@typescript-eslint/explicit-function-return-type": "off",
       "@typescript-eslint/no-non-null-assertion": "off",
+      "@typescript-eslint/no-dynamic-delete": "off",
     },
   },
   {

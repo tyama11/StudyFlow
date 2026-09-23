@@ -1656,8 +1656,10 @@ const SUBJECT_COLORS: Record<string, string> = {
 function getSubjectColor(subject: string | undefined): string {
   if (!subject) return "#64748b";
   const found = subjects.find((s) => s.name === subject);
-  if (found?.color) return found.color;
-  if (SUBJECT_COLORS[subject]) return SUBJECT_COLORS[subject]!;
+  const color = SUBJECT_COLORS[subject];
+  if (color) {
+    return color;
+  }
   let hash = 0;
   for (let i = 0; i < subject.length; i++) {
     hash = subject.charCodeAt(i) + ((hash << 5) - hash);
@@ -1989,7 +1991,12 @@ function loadSampleDemoData(): void {
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().split("T")[0] || getTodayStr();
 
-    const task = examTasks[i % examTasks.length]!;
+    const task = examTasks[i % examTasks.length] ?? {
+      title: "Self-Study Task",
+      subject: "その他自習",
+      mins: 45,
+      memo: "",
+    };
     const t1: Todo = {
       id: generateId(),
       title: task.title,
