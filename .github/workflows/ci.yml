@@ -24,7 +24,8 @@ jobs:
 
       # 1. TypeScript 型チェック
       - name: TypeScript Type Check
-        run: npm run type-check
+        run: |
+          npm run type-check || (npm run type-check -- 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" && exit 1)
 
       # 2. ESLint (コード品質・スタイル)
       - name: Lint (ESLint)

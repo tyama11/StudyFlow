@@ -21,7 +21,7 @@ import {
   getWeeklyChartData,
 } from "./models/stats.js";
 import { sanitizePomodoroMinutes } from "./models/timer.js";
-import { t, resolveLanguage, type MessageKey } from "./utils/i18n.js";
+import { t, resolveLanguage } from "./utils/i18n.js";
 import type {
   Todo,
   StudySession,
@@ -1457,7 +1457,7 @@ function openRecordModal(durationSec: number | null = null): void {
   const modal = document.getElementById("record-modal");
   const durationText = document.getElementById("modal-duration-text");
   const subjectInput = document.getElementById("modal-subject") as HTMLSelectElement | null;
-  const memoInput = document.getElementById("modal-memo") as HTMLInputElement | null;
+  const memoInput = document.getElementById("modal-memo") as HTMLTextAreaElement | null;
   const subjectSelect = document.getElementById("timer-subject") as HTMLSelectElement | null;
 
   currentSessionDurationSeconds =
@@ -1481,7 +1481,7 @@ function closeRecordModal(): void {
 function saveCurrentSession(): void {
   const subjectSelect = document.getElementById("modal-subject") as HTMLSelectElement | null;
   const todoSelect = document.getElementById("timer-todo-link") as HTMLSelectElement | null;
-  const memoInput = document.getElementById("modal-memo") as HTMLInputElement | null;
+  const memoInput = document.getElementById("modal-memo") as HTMLTextAreaElement | null;
 
   const durationSec =
     currentSessionDurationSeconds > 0
@@ -1524,7 +1524,7 @@ function openEditSessionModal(sessionId: string): void {
   const idInput = document.getElementById("edit-session-id") as HTMLInputElement | null;
   const subjectSelect = document.getElementById("edit-session-subject") as HTMLSelectElement | null;
   const minutesInput = document.getElementById("edit-session-minutes") as HTMLInputElement | null;
-  const memoInput = document.getElementById("edit-session-memo") as HTMLInputElement | null;
+  const memoInput = document.getElementById("edit-session-memo") as HTMLTextAreaElement | null;
 
   if (idInput) idInput.value = session.id;
   if (subjectSelect) subjectSelect.value = session.subject;
@@ -1543,7 +1543,7 @@ function saveEditedSession(): void {
   const idInput = document.getElementById("edit-session-id") as HTMLInputElement | null;
   const subjectSelect = document.getElementById("edit-session-subject") as HTMLSelectElement | null;
   const minutesInput = document.getElementById("edit-session-minutes") as HTMLInputElement | null;
-  const memoInput = document.getElementById("edit-session-memo") as HTMLInputElement | null;
+  const memoInput = document.getElementById("edit-session-memo") as HTMLTextAreaElement | null;
 
   if (!idInput?.value) return;
 
@@ -2343,7 +2343,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("timer-subject")?.addEventListener("change", (e) => {
     const targetDisplay = document.getElementById("timer-target-display");
-    if (targetDisplay) targetDisplay.textContent = `科目: ${(e.target as HTMLSelectElement).value}`;
+    if (targetDisplay) {
+      targetDisplay.textContent = `${t("subjectPrefix", {}, currentResolvedLang)}: ${(e.target as HTMLSelectElement).value}`;
+    }
   });
 
   // Modal 1 controls (Record)
