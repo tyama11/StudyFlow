@@ -29,13 +29,15 @@ jobs:
       - name: TypeScript Type Check
         run: npm run type-check
 
-      # 2. ESLint (コード品質・スタイル)
+      # 2. ESLint (コード品質・スタイル: 最も厳しい max-warnings=0)
       - name: Lint (ESLint)
         run: npm run lint
+        continue-on-error: false
 
       # 3. ユニットテスト + カバレッジ
       - name: Run Unit Tests with Coverage
         run: npm run coverage
+        continue-on-error: false
 
       # 4. カバレッジレポートをArtifactとして保存
       - name: Upload Coverage Report
