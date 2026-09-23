@@ -12,7 +12,9 @@ import {
  * Safely parses JSON with a fallback.
  */
 export function safeJsonParse<T>(raw: string | null | undefined, fallback: T): T {
-  if (!raw) return fallback;
+  if (!raw) {
+    return fallback;
+  }
   try {
     return JSON.parse(raw) as T;
   } catch (e) {
@@ -82,7 +84,9 @@ export function saveStorageItem(
   value: unknown,
   storage: Storage | null = getDefaultStorage(),
 ): void {
-  if (!storage) return;
+  if (!storage) {
+    return;
+  }
   try {
     const serialized = typeof value === "string" ? value : JSON.stringify(value);
     storage.setItem(key, serialized);

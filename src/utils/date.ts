@@ -26,10 +26,14 @@ export function formatDateDisplay(
   dateStr: string | null | undefined,
   lang: ResolvedLanguage = "ja",
 ): string {
-  if (!dateStr || !dateStr.includes("-")) return "";
+  if (!dateStr || !dateStr.includes("-")) {
+    return "";
+  }
   const parts = dateStr.split("-").map(Number);
   const [y, m, d] = parts as [number, number, number];
-  if (!y || !m || !d) return "";
+  if (!y || !m || !d) {
+    return "";
+  }
   const dateObj = new Date(y, m - 1, d);
 
   if (lang === "en") {

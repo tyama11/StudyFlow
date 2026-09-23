@@ -15,7 +15,9 @@ import { getPastDateRange } from "../utils/date.js";
  * Calculates the total study duration in seconds from a list of sessions.
  */
 export function calculateTotalSeconds(sessions: StudySession[] | null | undefined): number {
-  if (!Array.isArray(sessions)) return 0;
+  if (!Array.isArray(sessions)) {
+    return 0;
+  }
   return sessions.reduce((sum, s) => sum + (s.durationSeconds ?? 0), 0);
 }
 
@@ -83,7 +85,9 @@ export function calculateGoalProgress(
 export function aggregateSessionsBySubject(
   sessions: StudySession[] | null | undefined,
 ): SubjectAggregation[] {
-  if (!Array.isArray(sessions) || sessions.length === 0) return [];
+  if (!Array.isArray(sessions) || sessions.length === 0) {
+    return [];
+  }
 
   const subjectMap: Record<string, number> = {};
   let totalSeconds = 0;

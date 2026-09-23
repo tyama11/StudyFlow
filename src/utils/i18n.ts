@@ -20,8 +20,12 @@ export function detectSystemLanguage(): ResolvedLanguage {
  * Resolves configured language to either 'ja' or 'en'.
  */
 export function resolveLanguage(pref: Language): ResolvedLanguage {
-  if (pref === "ja") return "ja";
-  if (pref === "en") return "en";
+  if (pref === "ja") {
+    return "ja";
+  }
+  if (pref === "en") {
+    return "en";
+  }
   return detectSystemLanguage();
 }
 

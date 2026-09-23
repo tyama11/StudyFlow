@@ -56,7 +56,9 @@ export function generateId(): string {
  * @example escapeHtml('<script>') // "&lt;script&gt;"
  */
 export function escapeHtml(str: unknown): string {
-  if (str === null || str === undefined) return "";
+  if (str === null || str === undefined) {
+    return "";
+  }
   return String(str)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")

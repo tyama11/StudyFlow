@@ -4,9 +4,13 @@ import type { DailyChartData } from "./types/index.js";
 
 export function renderWeeklyChart(canvasId: string, dailyData: DailyChartData[]): void {
   const canvas = document.getElementById(canvasId);
-  if (!(canvas instanceof HTMLCanvasElement)) return;
+  if (!(canvas instanceof HTMLCanvasElement)) {
+    return;
+  }
   const ctx = canvas.getContext("2d");
-  if (!ctx) return;
+  if (!ctx) {
+    return;
+  }
 
   const dpr = window.devicePixelRatio || 1;
 
@@ -61,7 +65,9 @@ export function renderWeeklyChart(canvasId: string, dailyData: DailyChartData[])
 
   // Draw Bars
   const barCount = dailyData.length;
-  if (barCount === 0) return;
+  if (barCount === 0) {
+    return;
+  }
 
   const step = graphWidth / barCount;
   const barWidth = Math.min(36, step * 0.55);
