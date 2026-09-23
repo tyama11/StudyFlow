@@ -7,6 +7,7 @@ import type {
   GoalProgress,
   SubjectAggregation,
   DailyChartData,
+  ResolvedLanguage,
 } from "../types/index.js";
 import { getPastDateRange } from "../utils/date.js";
 
@@ -110,8 +111,9 @@ export function aggregateSessionsBySubject(
 export function getWeeklyChartData(
   sessions: StudySession[] | null | undefined,
   baseDateStr: string | undefined,
+  lang: ResolvedLanguage = "ja",
 ): DailyChartData[] {
-  const dateRange = getPastDateRange(baseDateStr, 7);
+  const dateRange = getPastDateRange(baseDateStr, 7, lang);
 
   return dateRange.map((d) => {
     const daySessions = (sessions ?? []).filter((s) => s.date === d.date);

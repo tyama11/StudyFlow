@@ -1,5 +1,7 @@
 // Formatting & Sanitization utility functions
 
+import type { ResolvedLanguage } from "../types/index.js";
+
 /**
  * Formats seconds into HH:MM:SS format
  * @example formatDuration(3665) // "01:01:05"
@@ -14,14 +16,28 @@ export function formatDuration(seconds: number | null | undefined): string {
 }
 
 /**
- * Formats seconds into human-readable Japanese format: "X時間 Y分" or "Y分"
- * @example formatHoursMinutes(5400) // "1時間 30分"
+ * Formats seconds into human-readable format:
+ * - Japanese: "X時間 Y分" or "Y分"
+ * - English: "Xh Ym" or "Ym"
+ * @example formatHoursMinutes(5400, "ja") // "1時間 30分"
+ * @example formatHoursMinutes(5400, "en") // "1h 30m"
  */
-export function formatHoursMinutes(seconds: number | null | undefined): string {
+export function formatHoursMinutes(
+  seconds: number | null | undefined,
+  lang: ResolvedLanguage = "ja",
+): string {
   const num = typeof seconds === "number" && !isNaN(seconds) ? seconds : 0;
   const safeSec = Math.max(0, Math.floor(num));
   const hrs = Math.floor(safeSec / 3600);
   const mins = Math.floor((safeSec % 3600) / 60);
+
+  if (lang === "en") {
+    if (hrs > 0) {
+      return `${hrs}h ${mins}m`;
+    }
+    return `${mins}m`;
+  }
+
   if (hrs > 0) {
     return `${hrs}時間 ${mins}分`;
   }

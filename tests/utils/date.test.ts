@@ -25,14 +25,22 @@ describe("src/utils/date.ts", () => {
       expect(formatDateDisplay("2026-09-14")).toBe("2026年9月14日 (月)");
     });
 
+    it("formats YYYY-MM-DD in English format when lang='en'", () => {
+      // 2026-09-14 is Monday
+      expect(formatDateDisplay("2026-09-14", "en")).toBe("Mon, Sep 14, 2026");
+      expect(formatDateDisplay("2026-01-01", "en")).toBe("Thu, Jan 1, 2026");
+    });
+
     it("formats Saturday correctly (土)", () => {
       // 2026-09-12 is Saturday
       expect(formatDateDisplay("2026-09-12")).toBe("2026年9月12日 (土)");
+      expect(formatDateDisplay("2026-09-12", "en")).toBe("Sat, Sep 12, 2026");
     });
 
     it("formats Sunday correctly (日)", () => {
       // 2026-09-13 is Sunday
       expect(formatDateDisplay("2026-09-13")).toBe("2026年9月13日 (日)");
+      expect(formatDateDisplay("2026-09-13", "en")).toBe("Sun, Sep 13, 2026");
     });
 
     it("returns empty string on empty or invalid input", () => {
@@ -40,6 +48,7 @@ describe("src/utils/date.ts", () => {
       expect(formatDateDisplay(null)).toBe("");
       expect(formatDateDisplay(undefined)).toBe("");
       expect(formatDateDisplay("invalid")).toBe("");
+      expect(formatDateDisplay("invalid", "en")).toBe("");
     });
   });
 
@@ -79,9 +88,13 @@ describe("src/utils/date.ts", () => {
       const entry = range[0];
       expect(entry).toHaveProperty("date");
       expect(entry).toHaveProperty("label");
+      expect(entry?.label).toBe("9/14(月)");
       expect(entry).toHaveProperty("year");
       expect(entry).toHaveProperty("month");
       expect(entry).toHaveProperty("day");
+
+      const enRange = getPastDateRange("2026-09-14", 1, "en");
+      expect(enRange[0]?.label).toBe("Sep 14");
     });
   });
 });

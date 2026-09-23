@@ -62,12 +62,14 @@ describe("src/models/storage.ts", () => {
       expect(data.goalSettings.type).toBe("tasks");
       expect(data.pomodoroSettings.workMinutes).toBe(25);
       expect(data.theme).toBe("auto");
+      expect(data.language).toBe("auto");
     });
 
     it("returns defaults when storage is null (e.g. SSR)", () => {
       const data = loadAllData(null);
       expect(data.todos).toEqual([]);
       expect(data.theme).toBe("auto");
+      expect(data.language).toBe("auto");
     });
 
     it("loads saved todos from storage correctly", () => {
@@ -95,6 +97,19 @@ describe("src/models/storage.ts", () => {
       mockStorage.setItem("studyflow_theme", "dark");
       const data = loadAllData(mockStorage);
       expect(data.theme).toBe("dark");
+    });
+
+    it("validates language to be 'auto' | 'ja' | 'en'", () => {
+      mockStorage.setItem("studyflow_language", "invalid_lang");
+      const data = loadAllData(mockStorage);
+      expect(data.language).toBe("auto");
+    });
+
+    it("correctly loads 'en' and 'ja' language from storage", () => {
+      mockStorage.setItem("studyflow_language", "en");
+      expect(loadAllData(mockStorage).language).toBe("en");
+      mockStorage.setItem("studyflow_language", "ja");
+      expect(loadAllData(mockStorage).language).toBe("ja");
     });
   });
 

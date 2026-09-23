@@ -1,6 +1,6 @@
 // Safe LocalStorage wrapper and state persistence
 
-import type { AppState, Theme } from "../types/index.js";
+import type { AppState, Theme, Language } from "../types/index.js";
 import {
   STORAGE_KEYS,
   DEFAULT_SUBJECTS,
@@ -33,6 +33,7 @@ export function loadAllData(storage: Storage | null = getDefaultStorage()): AppS
       goalSettings: { ...DEFAULT_GOAL_SETTINGS },
       pomodoroSettings: { ...DEFAULT_POMODORO_SETTINGS },
       theme: "auto",
+      language: "auto",
     };
   }
 
@@ -58,6 +59,10 @@ export function loadAllData(storage: Storage | null = getDefaultStorage()): AppS
   const theme: Theme =
     rawTheme === "dark" || rawTheme === "light" ? rawTheme : "auto";
 
+  const rawLang = storage.getItem(STORAGE_KEYS.LANGUAGE);
+  const language: Language =
+    rawLang === "ja" || rawLang === "en" ? rawLang : "auto";
+
   return {
     todos,
     sessions,
@@ -65,6 +70,7 @@ export function loadAllData(storage: Storage | null = getDefaultStorage()): AppS
     goalSettings,
     pomodoroSettings,
     theme,
+    language,
   };
 }
 

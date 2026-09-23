@@ -35,21 +35,28 @@ describe("src/utils/format.ts", () => {
   describe("formatHoursMinutes", () => {
     it("formats 0 seconds as '0分'", () => {
       expect(formatHoursMinutes(0)).toBe("0分");
+      expect(formatHoursMinutes(0, "en")).toBe("0m");
     });
 
     it("formats minutes only when under an hour", () => {
       expect(formatHoursMinutes(1800)).toBe("30分");
+      expect(formatHoursMinutes(1800, "en")).toBe("30m");
     });
 
     it("formats hours and minutes when 1 hour or more", () => {
       expect(formatHoursMinutes(3600)).toBe("1時間 0分");
+      expect(formatHoursMinutes(3600, "en")).toBe("1h 0m");
       expect(formatHoursMinutes(5400)).toBe("1時間 30分");
+      expect(formatHoursMinutes(5400, "en")).toBe("1h 30m");
       expect(formatHoursMinutes(9020)).toBe("2時間 30分");
+      expect(formatHoursMinutes(9020, "en")).toBe("2h 30m");
     });
 
     it("handles null / undefined gracefully", () => {
       expect(formatHoursMinutes(null)).toBe("0分");
+      expect(formatHoursMinutes(null, "en")).toBe("0m");
       expect(formatHoursMinutes(undefined)).toBe("0分");
+      expect(formatHoursMinutes(undefined, "en")).toBe("0m");
     });
   });
 

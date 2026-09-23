@@ -6,6 +6,7 @@ export const STORAGE_KEYS = {
   TODOS: "studyflow_todos",
   SESSIONS: "studyflow_sessions",
   THEME: "studyflow_theme",
+  LANGUAGE: "studyflow_language",
   SUBJECTS: "studyflow_subjects",
   GOAL_SETTINGS: "studyflow_goal_settings",
   POMODORO_SETTINGS: "studyflow_pomodoro_settings",
@@ -30,6 +31,25 @@ export const DEFAULT_SUBJECTS: Subject[] = [
   { name: "過去問・演習", color: "#f97316" },
   { name: "模試・復習", color: "#a855f7" },
   { name: "その他自習", color: "#64748b" },
+];
+
+export const DEFAULT_SUBJECTS_EN: Subject[] = [
+  { name: "English", color: "#3b82f6" },
+  { name: "Mathematics", color: "#ef4444" },
+  { name: "Literature", color: "#10b981" },
+  { name: "Classics", color: "#059669" },
+  { name: "Physics", color: "#8b5cf6" },
+  { name: "Chemistry", color: "#ec4899" },
+  { name: "Biology", color: "#14b8a6" },
+  { name: "Earth Science", color: "#f59e0b" },
+  { name: "History", color: "#d97706" },
+  { name: "World History", color: "#b45309" },
+  { name: "Geography", color: "#06b6d4" },
+  { name: "Civics & Economics", color: "#6366f1" },
+  { name: "Computer Science", color: "#0ea5e9" },
+  { name: "Past Exam Practice", color: "#f97316" },
+  { name: "Review & Mock Exam", color: "#a855f7" },
+  { name: "Self-Study", color: "#64748b" },
 ];
 
 export const DEFAULT_GOAL_SETTINGS: GoalSettings = {

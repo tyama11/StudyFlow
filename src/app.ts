@@ -3,6 +3,7 @@ import kaeruPianoAudioSrc from "./assets/audio/kaeru_piano.mp3";
 import {
   STORAGE_KEYS,
   DEFAULT_SUBJECTS,
+  DEFAULT_SUBJECTS_EN,
   DEFAULT_GOAL_SETTINGS,
   DEFAULT_POMODORO_SETTINGS,
 } from "./constants/defaults.js";
@@ -20,6 +21,7 @@ import {
   getWeeklyChartData,
 } from "./models/stats.js";
 import { sanitizePomodoroMinutes } from "./models/timer.js";
+import { t, resolveLanguage, type MessageKey } from "./utils/i18n.js";
 import type {
   Todo,
   StudySession,
@@ -28,6 +30,8 @@ import type {
   PomodoroSettings,
   TimerMode,
   Theme,
+  Language,
+  ResolvedLanguage,
   GoalProgress,
 } from "./types/index.js";
 
@@ -42,6 +46,8 @@ let goalSettings: GoalSettings = { ...DEFAULT_GOAL_SETTINGS };
 let pomodoroSettings: PomodoroSettings = { ...DEFAULT_POMODORO_SETTINGS };
 let activeTab = "tracker";
 let currentTheme: Theme = "auto";
+let currentLanguage: Language = "auto";
+let currentResolvedLang: ResolvedLanguage = "ja";
 
 // Audio State
 let alarmAudio: HTMLAudioElement | null = null;
@@ -92,10 +98,10 @@ function showConfirmModal({
     return;
   }
 
-  if (titleEl) titleEl.textContent = title || "確認";
-  if (msgEl) msgEl.textContent = message || "本当に実行しますか？";
+  if (titleEl) titleEl.textContent = title || t("confirmDefaultTitle", {}, currentResolvedLang);
+  if (msgEl) msgEl.textContent = message || t("confirmDefaultMsg", {}, currentResolvedLang);
   if (confirmBtn) {
-    confirmBtn.textContent = confirmText || "実行する";
+    confirmBtn.textContent = confirmText || t("confirmBtnText", {}, currentResolvedLang);
     confirmBtn.className = `btn ${confirmClass || "btn-danger"}`;
   }
 
@@ -176,6 +182,407 @@ function toggleTheme(): void {
 }
 
 // -------------------------------------------------------
+// Language (i18n) Management
+// -------------------------------------------------------
+
+function initLanguage(): void {
+  const stored = localStorage.getItem(STORAGE_KEYS.LANGUAGE) as Language | null;
+  currentLanguage = stored === "ja" || stored === "en" ? stored : "auto";
+  applyLanguage(currentLanguage);
+}
+
+function applyLanguage(lang: Language): void {
+  currentLanguage = lang;
+  currentResolvedLang = resolveLanguage(lang);
+  localStorage.setItem(STORAGE_KEYS.LANGUAGE, lang);
+
+  const textEl = document.getElementById("lang-toggle-text");
+  if (textEl) {
+    if (lang === "auto") {
+      textEl.textContent = currentResolvedLang === "ja" ? "言語: 自動 (日)" : "Language: Auto (EN)";
+    } else if (lang === "ja") {
+      textEl.textContent = "日本語";
+    } else {
+      textEl.textContent = "English";
+    }
+  }
+
+  // Update HTML lang attribute
+  document.documentElement.lang = currentResolvedLang;
+
+  // Translate static UI elements
+  translateStaticUI();
+
+  // If no custom subjects were ever saved, update default subjects to current language
+  const rawSubjects = localStorage.getItem(STORAGE_KEYS.SUBJECTS);
+  if (!rawSubjects) {
+    subjects = JSON.parse(
+      JSON.stringify(currentResolvedLang === "en" ? DEFAULT_SUBJECTS_EN : DEFAULT_SUBJECTS),
+    ) as Subject[];
+    renderSubjectSelects();
+    renderSubjectManageList();
+  }
+
+  updateAllViews();
+  updatePomodoroUI();
+}
+
+function toggleLanguage(): void {
+  if (currentLanguage === "auto") {
+    applyLanguage("en");
+  } else if (currentLanguage === "en") {
+    applyLanguage("ja");
+  } else {
+    applyLanguage("auto");
+  }
+}
+
+function translateStaticUI(): void {
+  const l = currentResolvedLang;
+
+  // Nav menu
+  const navTracker = document.querySelector<HTMLElement>('[data-tab="tracker"] span');
+  if (navTracker) navTracker.textContent = t("tabTracker", {}, l);
+
+  const navHistory = document.querySelector<HTMLElement>('[data-tab="history"] span');
+  if (navHistory) navHistory.textContent = t("tabHistory", {}, l);
+
+  const navSettings = document.querySelector<HTMLElement>('[data-tab="settings"] span');
+  if (navSettings) navSettings.textContent = t("tabSettings", {}, l);
+
+  const brandSub = document.querySelector<HTMLElement>(".brand-sub");
+  if (brandSub) brandSub.textContent = t("brandSubtitle", {}, l);
+
+  // Top Header Subtitle
+  const headerSub = document.getElementById("header-date-sub");
+  if (headerSub) headerSub.textContent = t("headerEncouragement", {}, l);
+
+  // Timer Card
+  const timerCardH3 = document.querySelector<HTMLElement>(".timer-card .card-header h3");
+  if (timerCardH3) timerCardH3.textContent = t("timerCardTitle", {}, l);
+
+  const btnModeCountup = document.getElementById("btn-mode-countup");
+  if (btnModeCountup) btnModeCountup.textContent = t("modeStopwatch", {}, l);
+
+  const pomoQuickLabel = document.querySelector<HTMLElement>(".pomodoro-quick-label");
+  if (pomoQuickLabel) pomoQuickLabel.textContent = t("pomodoroQuickLabel", {}, l);
+
+  const pomoCustomInput = document.getElementById("pomo-quick-custom-input") as HTMLInputElement | null;
+  if (pomoCustomInput) pomoCustomInput.placeholder = t("customMinutesPlaceholder", {}, l);
+
+  const pomoCustomSuffix = document.querySelector<HTMLElement>(".pomo-custom-suffix");
+  if (pomoCustomSuffix) pomoCustomSuffix.textContent = t("minutesSuffix", {}, l);
+
+  const timerSubjectLabel = document.querySelector<HTMLElement>('label[for="timer-subject"]');
+  if (timerSubjectLabel) timerSubjectLabel.textContent = t("subjectLabel", {}, l);
+
+  const timerTodoLabel = document.querySelector<HTMLElement>('label[for="timer-todo-link"]');
+  if (timerTodoLabel) timerTodoLabel.textContent = t("todoLinkLabel", {}, l);
+
+  const btnStart = document.getElementById("btn-timer-start");
+  if (btnStart) {
+    const span = btnStart.querySelector("span");
+    if (span) span.textContent = t("startTimer", {}, l);
+  }
+
+  const btnStop = document.getElementById("btn-timer-stop");
+  if (btnStop) {
+    const span = btnStop.querySelector("span");
+    if (span) span.textContent = t("stopTimer", {}, l);
+  }
+
+  const btnAlarmStop = document.getElementById("btn-timer-alarm-stop");
+  if (btnAlarmStop) {
+    const span = btnAlarmStop.querySelector("span");
+    if (span) span.textContent = t("alarmStopAndRecord", {}, l);
+  }
+
+  const btnReset = document.getElementById("btn-timer-reset");
+  if (btnReset) {
+    const span = btnReset.querySelector("span");
+    if (span) span.textContent = t("resetTimer", {}, l);
+  }
+
+  const recentH4 = document.querySelector<HTMLElement>(".sessions-header-row h4");
+  if (recentH4) recentH4.textContent = t("recentSessionsTitle", {}, l);
+
+  const recentHint = document.querySelector<HTMLElement>(".sessions-sub-hint");
+  if (recentHint) recentHint.textContent = t("recentSessionsHint", {}, l);
+
+  // TODO Card
+  const todoCardH3 = document.querySelector<HTMLElement>(".todo-card .card-header h3");
+  if (todoCardH3) todoCardH3.textContent = t("todoCardTitle", {}, l);
+
+  const todoInputTitle = document.getElementById("todo-input-title") as HTMLInputElement | null;
+  if (todoInputTitle) todoInputTitle.placeholder = t("todoInputPlaceholder", {}, l);
+
+  const todoBtnAdd = document.querySelector<HTMLElement>(".todo-add-box .btn-add span");
+  if (todoBtnAdd) todoBtnAdd.textContent = t("addBtn", {}, l);
+
+  const todoInputEst = document.getElementById("todo-input-estimate") as HTMLInputElement | null;
+  if (todoInputEst) todoInputEst.placeholder = t("estimatePlaceholder", {}, l);
+
+  const todoInputMemo = document.getElementById("todo-input-memo") as HTMLInputElement | null;
+  if (todoInputMemo) todoInputMemo.placeholder = t("memoPlaceholder", {}, l);
+
+  // History Tab Headings
+  const allTimeH3 = document.querySelector<HTMLElement>(".history-all-time-section h3.section-title");
+  if (allTimeH3) allTimeH3.textContent = t("allTimeSummaryTitle", {}, l);
+
+  const statLabels = document.querySelectorAll<HTMLElement>(".stat-label");
+  if (statLabels[0]) statLabels[0].textContent = t("allTimeTotalTimeLabel", {}, l);
+  if (statLabels[1]) statLabels[1].textContent = t("allTimeTodoCountLabel", {}, l);
+  if (statLabels[2]) statLabels[2].textContent = t("allTimeTopSubjectLabel", {}, l);
+  if (statLabels[3]) statLabels[3].textContent = t("dayTotalTimeLabel", {}, l);
+  if (statLabels[4]) statLabels[4].textContent = t("dayCompletedTasksLabel", {}, l);
+  if (statLabels[5]) statLabels[5].textContent = t("dayTopSubjectLabel", {}, l);
+
+  const subjectTotalsH3 = document.querySelector<HTMLElement>(".subject-totals-card .card-header h3");
+  if (subjectTotalsH3) subjectTotalsH3.textContent = t("subjectBreakdownTitle", {}, l);
+
+  const historyDateH3 = document.querySelectorAll<HTMLElement>("#tab-history h3.section-title");
+  if (historyDateH3[1]) historyDateH3[1].textContent = t("historyDateSectionTitle", {}, l);
+
+  const historyDateLabel = document.querySelector<HTMLElement>('label[for="history-date-picker"] strong');
+  if (historyDateLabel) historyDateLabel.textContent = t("selectDateLabel", {}, l);
+
+  const btnPrev = document.getElementById("btn-prev-day");
+  if (btnPrev) btnPrev.textContent = t("prevDay", {}, l);
+
+  const btnNext = document.getElementById("btn-next-day");
+  if (btnNext) btnNext.textContent = t("nextDay", {}, l);
+
+  const btnToday = document.getElementById("btn-today-day");
+  if (btnToday) btnToday.textContent = t("backToToday", {}, l);
+
+  // History Tables
+  const sessionTableWrapH3 = document.querySelector<HTMLElement>(".session-table-wrap")?.parentElement?.querySelector("h3");
+  if (sessionTableWrapH3) sessionTableWrapH3.textContent = t("historySessionsTableTitle", {}, l);
+
+  const tableHeaders = document.querySelectorAll<HTMLElement>("#history-sessions-table th");
+  if (tableHeaders[0]) tableHeaders[0].textContent = t("tableTimeRange", {}, l);
+  if (tableHeaders[1]) tableHeaders[1].textContent = t("tableSubject", {}, l);
+  if (tableHeaders[2]) tableHeaders[2].textContent = t("tableMemo", {}, l);
+  if (tableHeaders[3]) tableHeaders[3].textContent = t("tableDuration", {}, l);
+  if (tableHeaders[4]) tableHeaders[4].textContent = t("tableActions", {}, l);
+
+  const todoHistoryH3 = document.querySelector<HTMLElement>(".todo-history-list")?.parentElement?.querySelector("h3");
+  if (todoHistoryH3) todoHistoryH3.textContent = t("historyTodosTitle", {}, l);
+
+  const weeklyChartH3 = document.querySelector<HTMLElement>(".chart-container")?.parentElement?.querySelector("h3");
+  if (weeklyChartH3) weeklyChartH3.textContent = t("weeklyChartTitle", {}, l);
+
+  // Settings Tab
+  const goalHeaderH3 = document.querySelector<HTMLElement>("#goal-settings-form")?.parentElement?.querySelector(".card-header h3");
+  if (goalHeaderH3) goalHeaderH3.textContent = t("goalSettingsTitle", {}, l);
+
+  const goalDesc = document.querySelector<HTMLElement>("#goal-settings-form")?.parentElement?.querySelector(".section-desc");
+  if (goalDesc) goalDesc.textContent = t("goalSettingsDesc", {}, l);
+
+  const goalMetric = document.querySelector<HTMLElement>(".goal-type-grid")?.parentElement?.querySelector(".form-label-bold");
+  if (goalMetric) goalMetric.textContent = t("goalMetricLabel", {}, l);
+
+  const goalTaskCardStrong = document.querySelector<HTMLElement>("#goal-type-label-tasks strong");
+  if (goalTaskCardStrong) goalTaskCardStrong.textContent = t("goalTypeTasksTitle", {}, l);
+
+  const goalTaskCardSpan = document.querySelector<HTMLElement>("#goal-type-label-tasks span:not(.goal-card-icon)");
+  if (goalTaskCardSpan) goalTaskCardSpan.textContent = t("goalTypeTasksDesc", {}, l);
+
+  const goalTimeCardStrong = document.querySelector<HTMLElement>("#goal-type-label-time strong");
+  if (goalTimeCardStrong) goalTimeCardStrong.textContent = t("goalTypeTimeTitle", {}, l);
+
+  const goalTimeCardSpan = document.querySelector<HTMLElement>("#goal-type-label-time span:not(.goal-card-icon)");
+  if (goalTimeCardSpan) goalTimeCardSpan.textContent = t("goalTypeTimeDesc", {}, l);
+
+  const goalTaskModeLabel = document.querySelector<HTMLElement>("#goal-tasks-config .form-label-bold");
+  if (goalTaskModeLabel) goalTaskModeLabel.textContent = t("goalTaskModeLabel", {}, l);
+
+  const goalRadioSpans = document.querySelectorAll<HTMLElement>("#goal-tasks-config .radio-inline span");
+  if (goalRadioSpans[0]) goalRadioSpans[0].textContent = t("goalTaskModeAll", {}, l);
+  if (goalRadioSpans[1]) goalRadioSpans[1].textContent = t("goalTaskModeCustom", {}, l);
+
+  const goalTaskCountLabel = document.querySelector<HTMLElement>('label[for="goal-task-count-input"]');
+  if (goalTaskCountLabel) goalTaskCountLabel.textContent = t("goalTaskCountLabel", {}, l);
+
+  const goalItemUnit = document.querySelector<HTMLElement>("#goal-task-count-row .unit-label");
+  if (goalItemUnit) goalItemUnit.textContent = t("itemUnit", {}, l);
+
+  const goalTimeLabel = document.querySelector<HTMLElement>("#goal-time-config .form-label-bold");
+  if (goalTimeLabel) goalTimeLabel.textContent = t("goalTimeLabel", {}, l);
+
+  const timeUnits = document.querySelectorAll<HTMLElement>("#goal-time-config .unit-label");
+  if (timeUnits[0]) timeUnits[0].textContent = t("hoursSuffix", {}, l);
+  if (timeUnits[1]) timeUnits[1].textContent = t("minutesSuffix", {}, l);
+
+  const presetHint = document.querySelector<HTMLElement>("#goal-time-config .preset-hint");
+  if (presetHint) presetHint.textContent = t("quickSetting", {}, l);
+
+  const btnSaveGoalSpan = document.querySelector<HTMLElement>("#btn-save-goal-settings span");
+  if (btnSaveGoalSpan) btnSaveGoalSpan.textContent = t("saveGoalSettingsBtn", {}, l);
+
+  // Settings Tab - Pomodoro
+  const pomoHeaderH3 = document.querySelector<HTMLElement>("#pomodoro-settings-form")?.parentElement?.querySelector(".card-header h3");
+  if (pomoHeaderH3) pomoHeaderH3.textContent = t("pomodoroSettingsTitle", {}, l);
+
+  const pomoDesc = document.querySelector<HTMLElement>("#pomodoro-settings-form")?.parentElement?.querySelector(".section-desc");
+  if (pomoDesc) pomoDesc.textContent = t("pomodoroSettingsDesc", {}, l);
+
+  const pomoTimeLabel = document.querySelector<HTMLElement>(".pomodoro-setting-section .form-label-bold");
+  if (pomoTimeLabel) pomoTimeLabel.textContent = t("defaultPomodoroTime", {}, l);
+
+  const pomoTimePresetsHint = document.querySelector<HTMLElement>("#pomo-setting-presets .preset-hint");
+  if (pomoTimePresetsHint) pomoTimePresetsHint.textContent = t("quickSelect", {}, l);
+
+  const pomoHelp = document.querySelector<HTMLElement>(".pomodoro-setting-section .form-help");
+  if (pomoHelp) pomoHelp.textContent = t("pomodoroTimerHint", {}, l);
+
+  const soundLabel = document.querySelectorAll<HTMLElement>(".pomodoro-setting-section .form-label-bold")[1];
+  if (soundLabel) soundLabel.textContent = t("alarmSoundSectionTitle", {}, l);
+
+  const soundTitle = document.querySelector<HTMLElement>(".sound-title");
+  if (soundTitle) soundTitle.textContent = t("soundTitle", {}, l);
+
+  const soundMeta = document.querySelector<HTMLElement>(".sound-meta");
+  if (soundMeta) soundMeta.textContent = t("soundComposer", {}, l);
+
+  const previewBtnText = document.getElementById("btn-sound-preview-text");
+  if (previewBtnText) previewBtnText.textContent = isPreviewPlaying ? t("soundPreviewStop", {}, l) : t("soundPreviewBtn", {}, l);
+
+  const soundToggleLabel = document.querySelector<HTMLElement>(".sound-options-row .toggle-label");
+  if (soundToggleLabel) soundToggleLabel.textContent = t("soundEnableCheckbox", {}, l);
+
+  const btnSavePomoSpan = document.querySelector<HTMLElement>("#btn-save-pomodoro-settings span");
+  if (btnSavePomoSpan) btnSavePomoSpan.textContent = t("savePomodoroSettingsBtn", {}, l);
+
+  // Settings Tab - Subjects
+  const subjectCardH3 = document.querySelector<HTMLElement>("#subject-form")?.parentElement?.querySelector(".card-header h3");
+  if (subjectCardH3) subjectCardH3.textContent = t("subjectManageTitle", {}, l);
+
+  const subjectDesc = document.querySelector<HTMLElement>("#subject-form")?.parentElement?.querySelector(".section-desc");
+  if (subjectDesc) subjectDesc.textContent = t("subjectManageDesc", {}, l);
+
+  const subjectNameLabel = document.querySelector<HTMLElement>('label[for="subject-input-name"]');
+  if (subjectNameLabel) subjectNameLabel.textContent = t("subjectNameLabel", {}, l);
+
+  const subjectNameInput = document.getElementById("subject-input-name") as HTMLInputElement | null;
+  if (subjectNameInput) subjectNameInput.placeholder = t("subjectNamePlaceholder", {}, l);
+
+  const subjectColorLabel = document.querySelector<HTMLElement>('label[for="subject-input-color"]');
+  if (subjectColorLabel) subjectColorLabel.textContent = t("subjectColorLabel", {}, l);
+
+  const btnAddSubjectSpan = document.querySelector<HTMLElement>("#btn-add-subject span");
+  if (btnAddSubjectSpan) btnAddSubjectSpan.textContent = t("addSubjectBtn", {}, l);
+
+  const colorPresetLabel = document.querySelector<HTMLElement>(".color-presets-label");
+  if (colorPresetLabel) colorPresetLabel.textContent = t("recommendedColors", {}, l);
+
+  const registeredSubH4 = document.querySelector<HTMLElement>(".subject-list-header h4");
+  if (registeredSubH4) registeredSubH4.textContent = t("registeredSubjectsHeader", {}, l);
+
+  const resetSubSpan = document.querySelector<HTMLElement>("#btn-reset-subjects span");
+  if (resetSubSpan) resetSubSpan.textContent = t("resetSubjectsBtn", {}, l);
+
+  // Settings Tab - Backup
+  const backupCardH3 = document.querySelector<HTMLElement>(".backup-actions")?.parentElement?.querySelector(".card-header h3");
+  if (backupCardH3) backupCardH3.textContent = t("backupSectionTitle", {}, l);
+
+  const backupDesc = document.querySelector<HTMLElement>(".backup-actions")?.parentElement?.querySelector(".section-desc");
+  if (backupDesc) backupDesc.textContent = t("backupSectionDesc", {}, l);
+
+  const backupInfos = document.querySelectorAll<HTMLElement>(".backup-item .backup-info");
+  if (backupInfos[0]) {
+    const h4 = backupInfos[0].querySelector("h4");
+    const p = backupInfos[0].querySelector("p");
+    if (h4) h4.textContent = t("exportJsonTitle", {}, l);
+    if (p) p.textContent = t("exportJsonDesc", {}, l);
+  }
+  const btnExportSpan = document.querySelector<HTMLElement>("#btn-export-json span");
+  if (btnExportSpan) btnExportSpan.textContent = t("exportJsonBtn", {}, l);
+
+  if (backupInfos[1]) {
+    const h4 = backupInfos[1].querySelector("h4");
+    const p = backupInfos[1].querySelector("p");
+    if (h4) h4.textContent = t("importJsonTitle", {}, l);
+    if (p) p.textContent = t("importJsonDesc", {}, l);
+  }
+  const btnImportSpan = document.querySelector<HTMLElement>(".file-upload-btn span");
+  if (btnImportSpan) btnImportSpan.textContent = t("importJsonBtn", {}, l);
+
+  if (backupInfos[2]) {
+    const h4 = backupInfos[2].querySelector("h4");
+    const p = backupInfos[2].querySelector("p");
+    if (h4) h4.textContent = t("loadDemoTitle", {}, l);
+    if (p) p.textContent = t("loadDemoDesc", {}, l);
+  }
+  const btnLoadDemoSpan = document.querySelector<HTMLElement>("#btn-load-demo span");
+  if (btnLoadDemoSpan) btnLoadDemoSpan.textContent = t("loadDemoBtn", {}, l);
+
+  if (backupInfos[3]) {
+    const h4 = backupInfos[3].querySelector("h4");
+    const p = backupInfos[3].querySelector("p");
+    if (h4) h4.textContent = t("clearAllTitle", {}, l);
+    if (p) p.textContent = t("clearAllDesc", {}, l);
+  }
+  const btnClearAllSpan = document.querySelector<HTMLElement>("#btn-clear-all span");
+  if (btnClearAllSpan) btnClearAllSpan.textContent = t("clearAllBtn", {}, l);
+
+  // Modals
+  const recordModalH3 = document.querySelector<HTMLElement>("#record-modal .modal-card h3");
+  if (recordModalH3) recordModalH3.textContent = t("modalRecordTitle", {}, l);
+
+  const recordModalP = document.querySelector<HTMLElement>("#record-modal .modal-card > p");
+  if (recordModalP) recordModalP.textContent = t("modalRecordDesc", {}, l);
+
+  const recordModalStatLabel = document.querySelector<HTMLElement>("#record-modal .modal-stat-label");
+  if (recordModalStatLabel) recordModalStatLabel.textContent = t("modalRecordDuration", {}, l);
+
+  const recordSubjectLabel = document.querySelector<HTMLElement>('label[for="modal-subject"]');
+  if (recordSubjectLabel) recordSubjectLabel.textContent = t("modalRecordSubject", {}, l);
+
+  const recordMemoLabel = document.querySelector<HTMLElement>('label[for="modal-memo"]');
+  if (recordMemoLabel) recordMemoLabel.textContent = t("modalRecordMemoLabel", {}, l);
+
+  const recordMemoInput = document.getElementById("modal-memo") as HTMLTextAreaElement | null;
+  if (recordMemoInput) recordMemoInput.placeholder = t("modalRecordMemoPlaceholder", {}, l);
+
+  const recordCancelBtn = document.getElementById("modal-btn-cancel");
+  if (recordCancelBtn) recordCancelBtn.textContent = t("modalDiscardBtn", {}, l);
+
+  const recordSaveBtn = document.getElementById("modal-btn-save");
+  if (recordSaveBtn) recordSaveBtn.textContent = t("modalSaveBtn", {}, l);
+
+  const editModalH3 = document.querySelector<HTMLElement>("#edit-session-modal .modal-card h3");
+  if (editModalH3) editModalH3.textContent = t("modalEditTitle", {}, l);
+
+  const editModalP = document.querySelector<HTMLElement>("#edit-session-modal .modal-card > p");
+  if (editModalP) editModalP.textContent = t("modalEditDesc", {}, l);
+
+  const editSubjectLabel = document.querySelector<HTMLElement>('label[for="edit-session-subject"]');
+  if (editSubjectLabel) editSubjectLabel.textContent = t("modalEditSubject", {}, l);
+
+  const editMinutesLabel = document.querySelector<HTMLElement>('label[for="edit-session-minutes"]');
+  if (editMinutesLabel) editMinutesLabel.textContent = t("modalEditMinutes", {}, l);
+
+  const editMemoLabel = document.querySelector<HTMLElement>('label[for="edit-session-memo"]');
+  if (editMemoLabel) editMemoLabel.textContent = t("modalEditMemo", {}, l);
+
+  const editMemoInput = document.getElementById("edit-session-memo") as HTMLTextAreaElement | null;
+  if (editMemoInput) editMemoInput.placeholder = t("modalEditMemoPlaceholder", {}, l);
+
+  const editCancelBtn = document.getElementById("edit-session-btn-cancel");
+  if (editCancelBtn) editCancelBtn.textContent = t("modalCancelBtn", {}, l);
+
+  const editSaveBtn = document.getElementById("edit-session-btn-save");
+  if (editSaveBtn) editSaveBtn.textContent = t("modalSaveUpdateBtn", {}, l);
+
+  const alarmDismiss = document.getElementById("alarm-modal-btn-dismiss");
+  if (alarmDismiss) alarmDismiss.textContent = t("alarmDismissBtn", {}, l);
+
+  const alarmRecordSpan = document.querySelector<HTMLElement>("#alarm-modal-btn-record span");
+  if (alarmRecordSpan) alarmRecordSpan.textContent = t("alarmRecordBtn", {}, l);
+}
+
+// -------------------------------------------------------
 // Data Persistence
 // -------------------------------------------------------
 
@@ -240,7 +647,7 @@ function saveGoalSettings(): void {
   localStorage.setItem(STORAGE_KEYS.GOAL_SETTINGS, JSON.stringify(goalSettings));
   updateGoalSettingsUI();
   updateHeaderAndSummary();
-  showToast("1日の目標設定を保存しました！");
+  showToast(t("toastGoalSaved", {}, currentResolvedLang));
 }
 
 // -------------------------------------------------------
@@ -311,7 +718,7 @@ function startPreviewSound(): void {
       })
       .catch((err) => {
         console.warn("Preview audio play error:", err);
-        showToast("音声の再生がブラウザによりブロックされました");
+        showToast(t("toastAudioBlocked", {}, currentResolvedLang));
       });
   }
 }
@@ -336,7 +743,9 @@ function togglePreviewSound(): void {
 function updateSoundPreviewButton(isPlaying: boolean): void {
   const previewText = document.getElementById("btn-sound-preview-text");
   if (previewText) {
-    previewText.textContent = isPlaying ? "試聴を停止" : "テスト試聴";
+    previewText.textContent = isPlaying
+      ? t("soundPreviewStop", {}, currentResolvedLang)
+      : t("soundPreviewBtn", {}, currentResolvedLang);
   }
 }
 
@@ -344,7 +753,7 @@ function savePomodoroSettings(showNotification = false): void {
   localStorage.setItem(STORAGE_KEYS.POMODORO_SETTINGS, JSON.stringify(pomodoroSettings));
   updatePomodoroUI();
   if (showNotification) {
-    showToast("ポモドーロ＆アラーム設定を保存しました！");
+    showToast(t("toastPomoSaved", {}, currentResolvedLang));
   }
 }
 
@@ -363,7 +772,10 @@ function updatePomodoroUI(): void {
 
   const pomodoroModeBtn = document.getElementById("btn-mode-pomodoro");
   if (pomodoroModeBtn) {
-    pomodoroModeBtn.textContent = `ポモドーロ (${workMins}分)`;
+    pomodoroModeBtn.textContent =
+      currentResolvedLang === "en"
+        ? `Pomodoro (${workMins}m)`
+        : `ポモドーロ (${workMins}分)`;
   }
 
   const quickBar = document.getElementById("pomodoro-quick-bar");
@@ -390,7 +802,8 @@ function updatePomodoroUI(): void {
 
   const settingBadge = document.getElementById("pomodoro-current-badge");
   if (settingBadge) {
-    settingBadge.textContent = `現在: ${workMins}分`;
+    settingBadge.textContent =
+      currentResolvedLang === "en" ? `Current: ${workMins}m` : `現在: ${workMins}分`;
   }
 
   const settingInput = document.getElementById("setting-pomo-minutes") as HTMLInputElement | null;
@@ -485,11 +898,18 @@ function updateGoalSettingsUI(): void {
   const badge = document.getElementById("current-goal-badge");
   if (badge) {
     if (goalSettings.type === "time") {
-      badge.textContent = `学習時間 (目標 ${formatHoursMinutes(totalMins * 60)})`;
+      badge.textContent =
+        currentResolvedLang === "en"
+          ? `Study Time (Goal ${formatHoursMinutes(totalMins * 60, currentResolvedLang)})`
+          : `学習時間 (目標 ${formatHoursMinutes(totalMins * 60, currentResolvedLang)})`;
     } else if (goalSettings.taskTargetMode === "custom") {
-      badge.textContent = `タスク数 (目標 ${goalSettings.taskTargetCount} 個)`;
+      badge.textContent =
+        currentResolvedLang === "en"
+          ? `Task Count (Goal ${goalSettings.taskTargetCount} tasks)`
+          : `タスク数 (目標 ${goalSettings.taskTargetCount} 個)`;
     } else {
-      badge.textContent = `タスク数 (全タスク完了)`;
+      badge.textContent =
+        currentResolvedLang === "en" ? `Task Count (All Tasks)` : `タスク数 (全タスク完了)`;
     }
   }
 }
@@ -502,39 +922,41 @@ function addSubject(name: string, color: string): boolean {
   const trimmed = name.trim();
   if (!trimmed) return false;
   if (subjects.some((s) => s.name.toLowerCase() === trimmed.toLowerCase())) {
-    showToast(`「${trimmed}」は既に登録されています`);
+    showToast(t("toastSubjectAlreadyExists", { name: trimmed }, currentResolvedLang));
     return false;
   }
   subjects.push({ name: trimmed, color: color || "#6366f1" });
   saveSubjects();
-  showToast(`科目「${trimmed}」を追加しました！`);
+  showToast(t("toastSubjectAdded", { name: trimmed }, currentResolvedLang));
   return true;
 }
 
 function deleteSubject(name: string): void {
   showConfirmModal({
-    title: "科目の削除",
-    message: `「${name}」を科目一覧から削除しますか？\n（※過去に記録した学習ログやTODOのデータは保持されます）`,
-    confirmText: "削除する",
+    title: t("deleteSubjectConfirmTitle", {}, currentResolvedLang),
+    message: t("deleteSubjectConfirmMsg", { name }, currentResolvedLang),
+    confirmText: t("delete", {}, currentResolvedLang),
     confirmClass: "btn-danger",
     onConfirm: () => {
       subjects = subjects.filter((s) => s.name !== name);
       saveSubjects();
-      showToast(`科目「${name}」を削除しました`);
+      showToast(t("toastSubjectDeleted", { name }, currentResolvedLang));
     },
   });
 }
 
 function resetSubjects(): void {
   showConfirmModal({
-    title: "科目の初期化",
-    message: "科目一覧を初期の標準セットに戻しますか？\n（※追加したカスタム科目は削除されます）",
-    confirmText: "初期状態に戻す",
+    title: t("resetSubjectsConfirmTitle", {}, currentResolvedLang),
+    message: t("resetSubjectsConfirmMsg", {}, currentResolvedLang),
+    confirmText: t("resetSubjectsBtn", {}, currentResolvedLang),
     confirmClass: "btn-secondary",
     onConfirm: () => {
-      subjects = JSON.parse(JSON.stringify(DEFAULT_SUBJECTS)) as Subject[];
+      subjects = JSON.parse(
+        JSON.stringify(currentResolvedLang === "en" ? DEFAULT_SUBJECTS_EN : DEFAULT_SUBJECTS),
+      ) as Subject[];
       saveSubjects();
-      showToast("科目一覧を初期状態に戻しました");
+      showToast(t("toastSubjectsReset", {}, currentResolvedLang));
     },
   });
 }
@@ -561,7 +983,7 @@ function renderSubjectSelects(): void {
   const timerSub = document.getElementById("timer-subject") as HTMLSelectElement | null;
   const targetDisplay = document.getElementById("timer-target-display");
   if (timerSub && targetDisplay) {
-    targetDisplay.textContent = `科目: ${timerSub.value || "未選択"}`;
+    targetDisplay.textContent = `${t("subjectPrefix", {}, currentResolvedLang)}: ${timerSub.value || (currentResolvedLang === "en" ? "None" : "未選択")}`;
   }
 }
 
@@ -571,11 +993,11 @@ function renderSubjectManageList(): void {
   if (!container) return;
 
   if (countBadge) {
-    countBadge.textContent = `${subjects.length} 科目登録中`;
+    countBadge.textContent = t("subjectCountBadge", { count: subjects.length }, currentResolvedLang);
   }
 
   if (subjects.length === 0) {
-    container.innerHTML = `<div class="empty-hint">登録されている科目がありません。「科目を追加」から登録してください。</div>`;
+    container.innerHTML = `<div class="empty-hint">${t("noSubjectsRegistered", {}, currentResolvedLang)}</div>`;
     return;
   }
 
@@ -616,10 +1038,11 @@ function updateAllViews(): void {
 }
 
 function updateHeaderAndSummary(): void {
+  const l = currentResolvedLang;
   const todayStr = getTodayStr();
   const headerDateTitle = document.getElementById("header-date-title");
   if (headerDateTitle) {
-    headerDateTitle.textContent = formatDateDisplay(todayStr);
+    headerDateTitle.textContent = formatDateDisplay(todayStr, l);
   }
 
   const todaySessions = sessions.filter((s) => s.date === todayStr);
@@ -627,7 +1050,7 @@ function updateHeaderAndSummary(): void {
 
   const todayTotalTimeEl = document.getElementById("today-total-time");
   if (todayTotalTimeEl) {
-    todayTotalTimeEl.textContent = formatHoursMinutes(totalSeconds);
+    todayTotalTimeEl.textContent = formatHoursMinutes(totalSeconds, l);
   }
 
   const goalIconEl = document.getElementById("today-goal-icon");
@@ -645,19 +1068,44 @@ function updateHeaderAndSummary(): void {
 
   if (goalProgress.type === "time") {
     if (goalIconEl) goalIconEl.textContent = goalProgress.icon;
-    if (goalLabelEl) goalLabelEl.textContent = `本日の学習目標 (${formatHoursMinutes(goalProgress.targetSeconds)})`;
-    if (goalRatioEl) goalRatioEl.textContent = `${formatHoursMinutes(totalSeconds)} / ${formatHoursMinutes(goalProgress.targetSeconds)}`;
-    if (progressLabelEl) progressLabelEl.textContent = "目標時間達成率";
+    if (goalLabelEl) {
+      goalLabelEl.textContent =
+        l === "en"
+          ? `Daily Study Goal (${formatHoursMinutes(goalProgress.targetSeconds, l)})`
+          : `本日の学習目標 (${formatHoursMinutes(goalProgress.targetSeconds, l)})`;
+    }
+    if (goalRatioEl) {
+      goalRatioEl.textContent = `${formatHoursMinutes(totalSeconds, l)} / ${formatHoursMinutes(goalProgress.targetSeconds, l)}`;
+    }
+    if (progressLabelEl) progressLabelEl.textContent = t("todayTimeProgressRate", {}, l);
   } else {
     if (goalIconEl) goalIconEl.textContent = goalProgress.icon;
-    if (progressLabelEl) progressLabelEl.textContent = "タスク達成率";
+    if (progressLabelEl) progressLabelEl.textContent = t("todayProgressRate", {}, l);
 
     if (goalProgress.type === "tasks_custom") {
-      if (goalLabelEl) goalLabelEl.textContent = `本日のTODO達成 (目標 ${goalProgress.targetCount} 個)`;
-      if (goalRatioEl) goalRatioEl.textContent = `${goalProgress.completedCount} / ${goalProgress.targetCount} 個達成`;
+      if (goalLabelEl) {
+        goalLabelEl.textContent =
+          l === "en"
+            ? `Task Goal (${goalProgress.targetCount} tasks)`
+            : `本日のTODO達成 (目標 ${goalProgress.targetCount} 個)`;
+      }
+      if (goalRatioEl) {
+        goalRatioEl.textContent =
+          l === "en"
+            ? `${goalProgress.completedCount} / ${goalProgress.targetCount} completed`
+            : `${goalProgress.completedCount} / ${goalProgress.targetCount} 個達成`;
+      }
     } else {
-      if (goalLabelEl) goalLabelEl.textContent = "本日のTODO達成 (全タスク)";
-      if (goalRatioEl) goalRatioEl.textContent = `${goalProgress.completedCount} / ${goalProgress.totalTodoCount} 完了`;
+      if (goalLabelEl) {
+        goalLabelEl.textContent =
+          l === "en" ? "Task Goal (All Tasks)" : "本日のTODO達成 (全タスク)";
+      }
+      if (goalRatioEl) {
+        goalRatioEl.textContent =
+          l === "en"
+            ? `${goalProgress.completedCount} / ${goalProgress.totalTodoCount} done`
+            : `${goalProgress.completedCount} / ${goalProgress.totalTodoCount} 完了`;
+      }
     }
   }
 
@@ -674,6 +1122,7 @@ function updateHeaderAndSummary(): void {
   }
 
   if (goalBadgeEl) {
+    goalBadgeEl.textContent = t("todayGoalAchieved", {}, l);
     (goalBadgeEl as HTMLElement).style.display = isAchieved ? "inline-block" : "none";
   }
 }
@@ -683,6 +1132,7 @@ function updateHeaderAndSummary(): void {
 // -------------------------------------------------------
 
 function renderTodoList(): void {
+  const l = currentResolvedLang;
   const container = document.getElementById("todo-list-container");
   if (!container) return;
 
@@ -692,7 +1142,7 @@ function renderTodoList(): void {
   if (currentTodos.length === 0) {
     container.innerHTML = `
       <div class="empty-hint">
-        今日のタスクはありません。上から追加してみましょう！
+        ${t("todoEmptyHint", {}, l)}
       </div>
     `;
     return;
@@ -702,24 +1152,24 @@ function renderTodoList(): void {
     .map(
       (todo) => `
     <div class="todo-item ${todo.completed ? "completed" : ""}" data-id="${todo.id}">
-      <input type="checkbox" class="todo-checkbox" ${todo.completed ? "checked" : ""} title="${todo.completed ? "未完了に戻す" : "完了にする"}" />
+      <input type="checkbox" class="todo-checkbox" ${todo.completed ? "checked" : ""} title="${todo.completed ? t("markIncomplete", {}, l) : t("markComplete", {}, l)}" />
       <div class="todo-content">
         <div class="todo-title">${escapeHtml(todo.title)}</div>
         <div class="todo-meta">
-          <span class="todo-subject-badge" style="background-color: ${getSubjectColor(todo.subject)}20; color: ${getSubjectColor(todo.subject)}; border: 1px solid ${getSubjectColor(todo.subject)}40;">${escapeHtml(todo.subject || "その他自習")}</span>
-          ${todo.estimatedMinutes ? `<span>目安: ${todo.estimatedMinutes}分</span>` : ""}
-          ${todo.memo ? `<span>メモ: ${escapeHtml(todo.memo)}</span>` : ""}
+          <span class="todo-subject-badge" style="background-color: ${getSubjectColor(todo.subject)}20; color: ${getSubjectColor(todo.subject)}; border: 1px solid ${getSubjectColor(todo.subject)}40;">${escapeHtml(todo.subject || (l === "en" ? "Self-Study" : "その他自習"))}</span>
+          ${todo.estimatedMinutes ? `<span>${l === "en" ? "Est: " : "目安: "}${todo.estimatedMinutes}${t("minutesSuffix", {}, l)}</span>` : ""}
+          ${todo.memo ? `<span>${l === "en" ? "Note: " : "メモ: "}${escapeHtml(todo.memo)}</span>` : ""}
         </div>
       </div>
       <div class="todo-actions">
         ${
           !todo.completed
-            ? `<button class="icon-btn btn-timer-link" title="このタスクでタイマーを開始">
+            ? `<button class="icon-btn btn-timer-link" title="${t("startTimerForThisTask", {}, l)}">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
               </button>`
             : ""
         }
-        <button class="icon-btn delete btn-todo-delete" title="削除">
+        <button class="icon-btn delete btn-todo-delete" title="${t("delete", {}, l)}">
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
         </button>
       </div>
@@ -842,12 +1292,12 @@ function startTimer(): void {
     chip.classList.add("running");
     chip.classList.remove("completed");
   }
-  if (chipText) chipText.textContent = "学習中";
+  if (chipText) chipText.textContent = t("timerStatusRunning", {}, currentResolvedLang);
 
   const subjectSelect = document.getElementById("timer-subject") as HTMLSelectElement | null;
   const targetDisplay = document.getElementById("timer-target-display");
   if (subjectSelect && targetDisplay) {
-    targetDisplay.textContent = `科目: ${subjectSelect.value}`;
+    targetDisplay.textContent = `${t("subjectPrefix", {}, currentResolvedLang)}: ${subjectSelect.value}`;
   }
 
   if (timerInterval) clearInterval(timerInterval);
@@ -894,14 +1344,14 @@ function triggerPomodoroCompleted(): void {
     chip.classList.add("running");
     chip.classList.add("completed");
   }
-  if (chipText) chipText.textContent = "🎉 集中完了";
+  if (chipText) chipText.textContent = t("timerStatusCompleted", {}, currentResolvedLang);
 
   playAlarmSound();
 
   const modal = document.getElementById("alarm-modal");
   const completedText = document.getElementById("alarm-completed-minutes-text");
   if (completedText) {
-    completedText.textContent = `${pomodoroSettings.workMinutes || 25}分`;
+    completedText.textContent = `${pomodoroSettings.workMinutes || 25}${t("minutesSuffix", {}, currentResolvedLang)}`;
   }
   if (modal) {
     (modal as HTMLElement).style.display = "flex";
@@ -929,7 +1379,7 @@ function stopTimer(isCompleted = false): void {
   if (alarmBtn) alarmBtn.style.display = "none";
   if (timerCircle) timerCircle.classList.remove("active");
   if (chip) chip.classList.remove("running");
-  if (chipText) chipText.textContent = "待機中";
+  if (chipText) chipText.textContent = t("timerStatusIdle", {}, currentResolvedLang);
 
   let elapsed = 0;
   if (timerMode === "countup") {
@@ -975,12 +1425,12 @@ function resetTimer(): void {
     chip.classList.remove("running");
     chip.classList.remove("completed");
   }
-  if (chipText) chipText.textContent = "待機中";
+  if (chipText) chipText.textContent = t("timerStatusIdle", {}, currentResolvedLang);
 
   const subjectSelect = document.getElementById("timer-subject") as HTMLSelectElement | null;
   const targetDisplay = document.getElementById("timer-target-display");
   if (subjectSelect && targetDisplay) {
-    targetDisplay.textContent = `科目: ${subjectSelect.value}`;
+    targetDisplay.textContent = `${t("subjectPrefix", {}, currentResolvedLang)}: ${subjectSelect.value || (currentResolvedLang === "en" ? "None" : "未選択")}`;
   }
 }
 
@@ -1111,14 +1561,14 @@ function saveEditedSession(): void {
 
 function deleteSession(sessionId: string): void {
   showConfirmModal({
-    title: "学習記録の破棄",
-    message: "この学習記録を破棄（削除）しますか？\n合計学習時間や達成率にも即時反映されます。",
-    confirmText: "破棄する",
+    title: t("discardConfirmTitle", {}, currentResolvedLang),
+    message: t("discardConfirmMsg", {}, currentResolvedLang),
+    confirmText: t("modalDiscardBtn", {}, currentResolvedLang),
     confirmClass: "btn-danger",
     onConfirm: () => {
       sessions = sessions.filter((s) => s.id !== sessionId);
       saveData();
-      showToast("学習記録を破棄しました");
+      showToast(t("toastSessionDiscarded", {}, currentResolvedLang));
     },
   });
 }
@@ -1131,11 +1581,12 @@ function renderTodaySessions(): void {
   const container = document.getElementById("today-session-list");
   if (!container) return;
 
+  const l = currentResolvedLang;
   const todayStr = getTodayStr();
   const todaySessions = sessions.filter((s) => s.date === todayStr);
 
   if (todaySessions.length === 0) {
-    container.innerHTML = `<div class="empty-hint">まだ今日の記録はありません。Startボタンで計測を開始してください。</div>`;
+    container.innerHTML = `<div class="empty-hint">${t("recentSessionsEmpty", {}, l)}</div>`;
     return;
   }
 
@@ -1149,11 +1600,11 @@ function renderTodaySessions(): void {
         ${s.memo ? `<span class="session-memo-preview" title="${escapeHtml(s.memo)}">💭 ${escapeHtml(s.memo)}</span>` : ""}
       </div>
       <div class="session-right">
-        <strong>${formatHoursMinutes(s.durationSeconds)}</strong>
-        <button class="icon-btn edit btn-edit-session" title="編集">
+        <strong>${formatHoursMinutes(s.durationSeconds, l)}</strong>
+        <button class="icon-btn edit btn-edit-session" title="${t("edit", {}, l)}">
           <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
         </button>
-        <button class="icon-btn delete btn-delete-today-session" title="破棄">
+        <button class="icon-btn delete btn-delete-today-session" title="${t("delete", {}, l)}">
           <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
         </button>
       </div>
@@ -1220,21 +1671,25 @@ function getSubjectColor(subject: string | undefined): string {
 // -------------------------------------------------------
 
 function renderAllTimeStats(): void {
+  const l = currentResolvedLang;
   const totalSeconds = sessions.reduce((sum, s) => sum + (s.durationSeconds || 0), 0);
 
   const totalTimeEl = document.getElementById("all-time-total-time");
-  if (totalTimeEl) totalTimeEl.textContent = formatHoursMinutes(totalSeconds);
+  if (totalTimeEl) totalTimeEl.textContent = formatHoursMinutes(totalSeconds, l);
 
   const sessionCountEl = document.getElementById("all-time-session-count");
-  if (sessionCountEl) sessionCountEl.textContent = `総セッション: ${sessions.length} 回`;
+  if (sessionCountEl) sessionCountEl.textContent = t("allTimeTotalSessions", { count: sessions.length }, l);
 
   const completedTodoCount = todos.filter((t) => t.completed).length;
   const todoCountEl = document.getElementById("all-time-todo-count");
-  if (todoCountEl) todoCountEl.textContent = `${completedTodoCount} 個`;
+  if (todoCountEl) {
+    todoCountEl.textContent =
+      l === "en" ? `${completedTodoCount} tasks` : `${completedTodoCount} 個`;
+  }
 
   const activeDaysSet = new Set(sessions.map((s) => s.date).filter(Boolean));
   const activeDaysEl = document.getElementById("all-time-active-days");
-  if (activeDaysEl) activeDaysEl.textContent = `記録日数: ${activeDaysSet.size} 日`;
+  if (activeDaysEl) activeDaysEl.textContent = t("allTimeActiveDays", { days: activeDaysSet.size }, l);
 
   const subjectAggregates = aggregateSessionsBySubject(sessions);
 
@@ -1243,7 +1698,7 @@ function renderAllTimeStats(): void {
   if (subjectAggregates.length > 0) {
     const topItem = subjectAggregates[0];
     if (topSubEl) topSubEl.textContent = topItem?.subject ?? "-";
-    if (topSubTimeEl) topSubTimeEl.textContent = formatHoursMinutes(topItem?.seconds ?? 0);
+    if (topSubTimeEl) topSubTimeEl.textContent = formatHoursMinutes(topItem?.seconds ?? 0, l);
   } else {
     if (topSubEl) topSubEl.textContent = "-";
     if (topSubTimeEl) topSubTimeEl.textContent = "-";
@@ -1251,7 +1706,7 @@ function renderAllTimeStats(): void {
 
   const breakdownCountEl = document.getElementById("subject-breakdown-count");
   if (breakdownCountEl) {
-    breakdownCountEl.textContent = `${subjectAggregates.length} 科目記録中`;
+    breakdownCountEl.textContent = t("subjectBreakdownCount", { count: subjectAggregates.length }, l);
   }
 
   const listContainer = document.getElementById("subject-totals-list");
@@ -1259,7 +1714,7 @@ function renderAllTimeStats(): void {
     if (subjectAggregates.length === 0) {
       listContainer.innerHTML = `
         <div class="empty-hint">
-          学習記録がまだありません。タイマーで学習を記録するとここに科目ごとの累計時間が表示されます。
+          ${t("subjectBreakdownEmpty", {}, l)}
         </div>
       `;
     } else {
@@ -1276,7 +1731,7 @@ function renderAllTimeStats(): void {
                 <div class="subject-bar-fill" style="width: ${pct}%; background-color: ${color};"></div>
               </div>
               <div class="subject-item-stats">
-                <span class="subject-stat-hours">${formatHoursMinutes(secs)}</span>
+                <span class="subject-stat-hours">${formatHoursMinutes(secs, l)}</span>
                 <span class="subject-stat-pct">${pct}%</span>
               </div>
             </div>
@@ -1292,6 +1747,7 @@ function renderAllTimeStats(): void {
 // -------------------------------------------------------
 
 function renderHistoryView(): void {
+  const l = currentResolvedLang;
   renderAllTimeStats();
 
   const dateInput = document.getElementById("history-date-picker") as HTMLInputElement | null;
@@ -1304,8 +1760,8 @@ function renderHistoryView(): void {
 
   const totalTimeEl = document.getElementById("history-total-time");
   const sessionCountEl = document.getElementById("history-session-count");
-  if (totalTimeEl) totalTimeEl.textContent = formatHoursMinutes(totalSeconds);
-  if (sessionCountEl) sessionCountEl.textContent = `${selectedSessions.length} セッション`;
+  if (totalTimeEl) totalTimeEl.textContent = formatHoursMinutes(totalSeconds, l);
+  if (sessionCountEl) sessionCountEl.textContent = t("daySessionCount", { count: selectedSessions.length }, l);
 
   const historySubjectAggs = aggregateSessionsBySubject(selectedSessions);
   const topSubEl = document.getElementById("history-top-subject");
@@ -1313,7 +1769,7 @@ function renderHistoryView(): void {
   if (historySubjectAggs.length > 0) {
     const topSub = historySubjectAggs[0];
     if (topSubEl) topSubEl.textContent = topSub?.subject ?? "-";
-    if (topSubTimeEl) topSubTimeEl.textContent = formatHoursMinutes(topSub?.seconds ?? 0);
+    if (topSubTimeEl) topSubTimeEl.textContent = formatHoursMinutes(topSub?.seconds ?? 0, l);
   } else {
     if (topSubEl) topSubEl.textContent = "-";
     if (topSubTimeEl) topSubTimeEl.textContent = "-";
@@ -1327,13 +1783,13 @@ function renderHistoryView(): void {
   if (todoRateEl) {
     const rate =
       selectedTodos.length > 0 ? Math.round((doneTodos.length / selectedTodos.length) * 100) : 0;
-    todoRateEl.textContent = `達成率 ${rate}%`;
+    todoRateEl.textContent = t("dayAchievementRate", { rate }, l);
   }
 
   const tbody = document.getElementById("history-sessions-tbody");
   if (tbody) {
     if (selectedSessions.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-dim); padding: 1.5rem;">この日の学習記録はありません。</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-dim); padding: 1.5rem;">${t("tableNoRecords", {}, l)}</td></tr>`;
     } else {
       tbody.innerHTML = selectedSessions
         .map((s) => {
@@ -1343,12 +1799,12 @@ function renderHistoryView(): void {
             <td>${s.startTime || "-"} ~ ${s.endTime || "-"}</td>
             <td><span class="session-badge" style="background-color: ${getSubjectColor(s.subject)}25; color: ${getSubjectColor(s.subject)}; border: 1px solid ${getSubjectColor(s.subject)}50;">${escapeHtml(s.subject)}</span></td>
             <td>${linkedTodo ? escapeHtml(linkedTodo.title) : (s.memo ? escapeHtml(s.memo) : "-")}</td>
-            <td><strong>${formatHoursMinutes(s.durationSeconds)}</strong></td>
+            <td><strong>${formatHoursMinutes(s.durationSeconds, l)}</strong></td>
             <td>
-              <button class="icon-btn edit btn-history-edit-session" data-id="${s.id}" title="編集">
+              <button class="icon-btn edit btn-history-edit-session" data-id="${s.id}" title="${t("edit", {}, l)}">
                 <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
               </button>
-              <button class="icon-btn delete btn-delete-session" data-id="${s.id}" title="削除">
+              <button class="icon-btn delete btn-delete-session" data-id="${s.id}" title="${t("delete", {}, l)}">
                 <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
               </button>
             </td>
@@ -1376,18 +1832,18 @@ function renderHistoryView(): void {
   const historyTodoList = document.getElementById("history-todos-list");
   if (historyTodoList) {
     if (selectedTodos.length === 0) {
-      historyTodoList.innerHTML = `<div class="empty-hint">この日のTODO記録はありません。</div>`;
+      historyTodoList.innerHTML = `<div class="empty-hint">${t("historyTodosEmpty", {}, l)}</div>`;
     } else {
       historyTodoList.innerHTML = selectedTodos
         .map(
-          (t) => `
-        <div class="todo-item ${t.completed ? "completed" : ""}">
-          <input type="checkbox" class="todo-checkbox" ${t.completed ? "checked" : ""} disabled />
+          (tItem) => `
+        <div class="todo-item ${tItem.completed ? "completed" : ""}">
+          <input type="checkbox" class="todo-checkbox" ${tItem.completed ? "checked" : ""} disabled />
           <div class="todo-content">
-            <div class="todo-title">${escapeHtml(t.title)}</div>
+            <div class="todo-title">${escapeHtml(tItem.title)}</div>
             <div class="todo-meta">
-              <span class="todo-subject-badge" style="background-color: ${getSubjectColor(t.subject)}20; color: ${getSubjectColor(t.subject)}; border: 1px solid ${getSubjectColor(t.subject)}40;">${escapeHtml(t.subject || "その他自習")}</span>
-              ${t.completed ? `<span style="color: var(--success)">✓ 達成</span>` : `<span>未完了</span>`}
+              <span class="todo-subject-badge" style="background-color: ${getSubjectColor(tItem.subject)}20; color: ${getSubjectColor(tItem.subject)}; border: 1px solid ${getSubjectColor(tItem.subject)}40;">${escapeHtml(tItem.subject || (l === "en" ? "Self-Study" : "その他自習"))}</span>
+              ${tItem.completed ? `<span style="color: var(--success)">${t("todoAchievedStatus", {}, l)}</span>` : `<span>${t("todoIncompleteStatus", {}, l)}</span>`}
             </div>
           </div>
         </div>
@@ -1401,7 +1857,7 @@ function renderHistoryView(): void {
 }
 
 function renderWeeklyTrend(): void {
-  const chartData = getWeeklyChartData(sessions, selectedHistoryDate);
+  const chartData = getWeeklyChartData(sessions, selectedHistoryDate, currentResolvedLang);
   renderWeeklyChart("weekly-chart", chartData);
 }
 
@@ -1435,13 +1891,14 @@ function switchTab(tabName: string): void {
 function exportDataAsJSON(): void {
   const payload = {
     appName: "StudyFlow",
-    version: "1.4.0",
+    version: "2.0.0",
     exportDate: new Date().toISOString(),
     todos,
     sessions,
     subjects,
     goalSettings,
     pomodoroSettings,
+    language: currentLanguage,
   };
 
   const dataStr =
@@ -1452,7 +1909,7 @@ function exportDataAsJSON(): void {
   document.body.appendChild(downloadAnchor);
   downloadAnchor.click();
   downloadAnchor.remove();
-  showToast("バックアップJSONをエクスポートしました");
+  showToast(t("toastExported", {}, currentResolvedLang));
 }
 
 function importDataFromJSON(file: File): void {
@@ -1465,6 +1922,7 @@ function importDataFromJSON(file: File): void {
         subjects?: unknown[];
         goalSettings?: Partial<GoalSettings>;
         pomodoroSettings?: Partial<PomodoroSettings>;
+        language?: Language;
       };
       if (Array.isArray(data.todos) && Array.isArray(data.sessions)) {
         todos = data.todos as Todo[];
@@ -1486,12 +1944,15 @@ function importDataFromJSON(file: File): void {
           savePomodoroSettings(false);
           updatePomodoroUI();
         }
-        showToast("データの読み込み・復元が完了しました！");
+        if (data.language && (data.language === "auto" || data.language === "ja" || data.language === "en")) {
+          applyLanguage(data.language);
+        }
+        showToast(t("toastImportSuccess", {}, currentResolvedLang));
       } else {
-        showToast("無効なバックアップファイル形式です");
+        showToast(t("toastInvalidBackup", {}, currentResolvedLang));
       }
     } catch (err) {
-      showToast("JSONファイルの解析に失敗しました: " + (err as Error).message);
+      showToast(t("toastImportError", {}, currentResolvedLang) + (err as Error).message);
     }
   };
   reader.readAsText(file);
@@ -1501,15 +1962,27 @@ function loadSampleDemoData(): void {
   const today = new Date();
   const sampleTodos: Todo[] = [];
   const sampleSessions: StudySession[] = [];
-  const examTasks: Array<{ title: string; subject: string; mins: number }> = [
-    { title: "ターゲット1900 100語暗記・確認テスト", subject: "英語", mins: 45 },
-    { title: "共通テスト過去問 数学II・B 微積分", subject: "数学", mins: 60 },
-    { title: "現代文 キーワード読解 2章", subject: "現代文", mins: 40 },
-    { title: "セミナー物理 力学 総合演習3題", subject: "物理", mins: 75 },
-    { title: "共通テスト化学 酸化還元・熱化学", subject: "化学", mins: 60 },
-    { title: "日本史 一問一答 近現代史の総復習", subject: "日本史", mins: 50 },
-    { title: "志望校 英語過去問 2024年度長文読解", subject: "過去問・演習", mins: 90 },
-  ];
+  const isEn = currentResolvedLang === "en";
+
+  const examTasks: Array<{ title: string; subject: string; mins: number; memo: string }> = isEn
+    ? [
+        { title: "Vocabulary list: memorize 100 words", subject: "English", mins: 45, memo: "Review errors thoroughly" },
+        { title: "Calculus practice: integrals & limits", subject: "Math", mins: 60, memo: "Past exam questions 3 to 5" },
+        { title: "Reading comprehension chapter 2", subject: "Reading", mins: 40, memo: "Analyze argument flow" },
+        { title: "Physics mechanics problem set 3", subject: "Physics", mins: 75, memo: "Focus on energy conservation" },
+        { title: "Chemistry redox & thermochemistry", subject: "Chemistry", mins: 60, memo: "Equilibrium formulas review" },
+        { title: "World history: Modern era review", subject: "History", mins: 50, memo: "Timeline check from 1900" },
+        { title: "Full mock exam review & essay", subject: "Mock Exams", mins: 90, memo: "Time management practice" },
+      ]
+    : [
+        { title: "ターゲット1900 100語暗記・確認テスト", subject: "英語", mins: 45, memo: "間違えた箇所の解説を熟読" },
+        { title: "共通テスト過去問 数学II・B 微積分", subject: "数学", mins: 60, memo: "第3問〜第5問" },
+        { title: "現代文 キーワード読解 2章", subject: "現代文", mins: 40, memo: "論理構成の把握" },
+        { title: "セミナー物理 力学 総合演習3題", subject: "物理", mins: 75, memo: "力学的エネルギー保存則" },
+        { title: "共通テスト化学 酸化還元・熱化学", subject: "化学", mins: 60, memo: "熱化学方程式の復習" },
+        { title: "日本史 一問一答 近現代史の総復習", subject: "日本史", mins: 50, memo: "年表と出来事の整理" },
+        { title: "志望校 英語過去問 2024年度長文読解", subject: "過去問・演習", mins: 90, memo: "時間配分のシミュレーション" },
+      ];
 
   for (let i = 6; i >= 0; i--) {
     const d = new Date(today);
@@ -1522,7 +1995,7 @@ function loadSampleDemoData(): void {
       title: task.title,
       subject: task.subject,
       estimatedMinutes: task.mins,
-      memo: "間違えた箇所の解説を熟読",
+      memo: task.memo,
       completed: true,
       completedAt: new Date(d.getTime() + 3600000).toISOString(),
       createdAt: d.toISOString(),
@@ -1530,10 +2003,10 @@ function loadSampleDemoData(): void {
     };
     const t2: Todo = {
       id: generateId(),
-      title: "古文単語315 1〜100確認テスト",
-      subject: "古文・漢文",
+      title: isEn ? "Grammar & structure exercises 1-50" : "古文単語315 1〜100確認テスト",
+      subject: isEn ? "English" : "古文・漢文",
       estimatedMinutes: 30,
-      memo: "助動詞の接続も合わせて確認",
+      memo: isEn ? "Check auxiliary verbs" : "助動詞の接続も合わせて確認",
       completed: i < 5,
       completedAt: i < 5 ? new Date(d.getTime() + 7200000).toISOString() : null,
       createdAt: d.toISOString(),
@@ -1551,27 +2024,27 @@ function loadSampleDemoData(): void {
       subject: task.subject,
       timerMode: "countup",
       todoId: t1.id,
-      memo: "集中して演習完了",
+      memo: isEn ? "Focused and completed problems" : "集中して演習完了",
     });
   }
 
   todos = sampleTodos;
   sessions = sampleSessions;
   saveData();
-  showToast("受験生向けのサンプルデータを投入しました！");
+  showToast(t("toastDemoLoaded", {}, currentResolvedLang));
 }
 
 function clearAllData(): void {
   showConfirmModal({
-    title: "全データの初期化",
-    message: "本当にすべてのTODOおよび学習ログを削除しますか？\nこの操作は取り消せません。",
-    confirmText: "すべて消去",
+    title: t("clearAllConfirmTitle", {}, currentResolvedLang),
+    message: t("clearAllConfirmMsg", {}, currentResolvedLang),
+    confirmText: t("clearAllBtn", {}, currentResolvedLang),
     confirmClass: "btn-danger",
     onConfirm: () => {
       todos = [];
       sessions = [];
       saveData();
-      showToast("すべてのデータを初期化しました");
+      showToast(t("toastAllCleared", {}, currentResolvedLang));
     },
   });
 }
@@ -1583,6 +2056,7 @@ function clearAllData(): void {
 document.addEventListener("DOMContentLoaded", () => {
   initTheme();
   loadData();
+  initLanguage();
   renderSubjectSelects();
   updatePomodoroUI();
   updateAllViews();
@@ -1590,6 +2064,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Theme toggle
   document.getElementById("btn-theme-toggle")?.addEventListener("click", toggleTheme);
+
+  // Language toggle
+  document.getElementById("btn-lang-toggle")?.addEventListener("click", toggleLanguage);
 
   // Tab navigation
   document.querySelectorAll<HTMLElement>(".nav-item").forEach((btn) => {

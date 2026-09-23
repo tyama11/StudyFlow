@@ -41,6 +41,8 @@ export type GoalType = "tasks" | "time";
 export type TaskTargetMode = "all" | "custom";
 export type TimerMode = "countup" | "pomodoro";
 export type Theme = "auto" | "dark" | "light";
+export type Language = "auto" | "ja" | "en";
+export type ResolvedLanguage = "ja" | "en";
 
 export interface GoalSettings {
   type: GoalType;
@@ -133,4 +135,5 @@ export interface AppState {
   goalSettings: GoalSettings;
   pomodoroSettings: PomodoroSettings;
   theme: Theme;
+  language: Language;
 }
