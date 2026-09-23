@@ -24,8 +24,10 @@ jobs:
 
       # 1. TypeScript 型チェック
       - name: TypeScript Type Check
+        id: typecheck
         run: |
-          npm run type-check || (npm run type-check -- 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" && exit 1)
+          mkdir -p ci-logs
+          npx tsc --noEmit > ci-logs/tsc.log 2>&1 || (cat ci-logs/tsc.log && exit 1)
 
       # 2. ESLint (コード品質・スタイル)
       - name: Lint (ESLint)
@@ -34,6 +36,14 @@ jobs:
       # 3. ユニットテスト + カバレッジ
       - name: Run Unit Tests with Coverage
         run: npm run coverage
+
+      - name: Upload CI Logs on Failure
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ci-diagnostic-logs
+          path: ci-logs/
+          retention-days: 1
 
       # 4. カバレッジレポートをArtifactとして保存
       - name: Upload Coverage Report
