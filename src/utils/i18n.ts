@@ -468,7 +468,7 @@ export function t(
   let text: string = dict[key] ?? MESSAGES.ja[key] ?? key;
 
   for (const [k, v] of Object.entries(params)) {
-    text = text.replaceAll(`{${k}}`, String(v));
+    text = text.split(`{${k}}`).join(String(v));
   }
   return text;
 }
