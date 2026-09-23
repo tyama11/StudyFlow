@@ -3,6 +3,8 @@ name: "Dependabot Auto-Approve & Auto-Merge"
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
+  # 手動でも全 Dependabot PR の自動承認・自動マージを実行可能にする
+  workflow_dispatch:
 
 permissions:
   pull-requests: write
@@ -11,23 +13,26 @@ permissions:
 jobs:
   dependabot:
     runs-on: ubuntu-latest
-    if: github.actor == 'dependabot[bot]'
+    if: github.actor == 'dependabot[bot]' || github.event_name == 'workflow_dispatch'
     steps:
-      - name: Fetch Dependabot metadata
-        id: metadata
-        uses: dependabot/fetch-metadata@v2
-        with:
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
-
-      - name: Approve PR
-        run: gh pr review --approve "$PR_URL"
-        env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Enable Auto-Merge
+      - name: Approve and Enable Auto-Merge
         run: |
-          gh pr merge --auto --squash "$PR_URL" || echo "Auto-merge could not be enabled yet or repository auto-merge is disabled in settings"
+          if [ -n "$PR_URL" ]; then
+            echo "Processing PR: $PR_URL"
+            gh pr review --approve "$PR_URL" || true
+            gh pr merge --auto --squash "$PR_URL" || true
+          else
+            echo "Processing all open Dependabot PRs..."
+            prs=$(gh pr list --author "app/dependabot" --state open --json number,url -q '.[] | .url')
+            if [ -z "$prs" ]; then
+              prs=$(gh pr list --state open --json number,url,author -q '.[] | select(.author.login | test("dependabot")) | .url')
+            fi
+            for url in $prs; do
+              echo "Approving and enabling auto-merge for: $url"
+              gh pr review --approve "$url" || true
+              gh pr merge --auto --squash "$url" || true
+            done
+          fi
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
