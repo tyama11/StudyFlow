@@ -15,6 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     if: github.actor == 'dependabot[bot]' || github.event_name == 'workflow_dispatch'
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Approve and Enable Auto-Merge
         run: |
           if [ -n "$PR_URL" ]; then
@@ -23,16 +26,18 @@ jobs:
             gh pr merge --auto --squash "$PR_URL" || true
           else
             echo "Processing all open Dependabot PRs..."
-            prs=$(gh pr list --author "app/dependabot" --state open --json number,url -q '.[] | .url')
+            prs=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --json number,url,author -q '.[] | select(.author.login | test("dependabot")) | .url')
             if [ -z "$prs" ]; then
-              prs=$(gh pr list --state open --json number,url,author -q '.[] | select(.author.login | test("dependabot")) | .url')
+              echo "No open Dependabot PRs found."
+            else
+              for url in $prs; do
+                echo "Approving and enabling auto-merge for: $url"
+                gh pr review --approve "$url" || true
+                gh pr merge --auto --squash "$url" || true
+              done
             fi
-            for url in $prs; do
-              echo "Approving and enabling auto-merge for: $url"
-              gh pr review --approve "$url" || true
-              gh pr merge --auto --squash "$url" || true
-            done
           fi
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
