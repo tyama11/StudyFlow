@@ -68,9 +68,14 @@ export function getPastDateRange(
         ? (WEEKDAYS_EN[target.getDay()] ?? "")
         : (WEEKDAYS_JA[target.getDay()] ?? "");
 
+    const label =
+      lang === "en"
+        ? `${MONTH_NAMES_EN[target.getMonth()] ?? ""} ${target.getDate()}`
+        : `${target.getMonth() + 1}/${target.getDate()}(${weekday})`;
+
     result.push({
       date: dateStr,
-      label: `${target.getMonth() + 1}/${target.getDate()}(${weekday})`,
+      label,
       year: targetYear,
       month: target.getMonth() + 1,
       day: target.getDate(),

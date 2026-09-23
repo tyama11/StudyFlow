@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import {
   detectSystemLanguage,
   resolveLanguage,
@@ -8,54 +8,36 @@ import {
 
 describe("src/utils/i18n.ts", () => {
   describe("detectSystemLanguage", () => {
-    const originalNavigator = globalThis.navigator;
-
     afterEach(() => {
-      Object.defineProperty(globalThis, "navigator", {
-        value: originalNavigator,
-        configurable: true,
-        writable: true,
-      });
+      vi.unstubAllGlobals();
     });
 
     it("returns 'ja' when navigator.language starts with ja (e.g. ja-JP)", () => {
-      Object.defineProperty(globalThis, "navigator", {
-        value: { language: "ja-JP" },
-        configurable: true,
-        writable: true,
-      });
+      vi.stubGlobal("navigator", { language: "ja-JP" });
       expect(detectSystemLanguage()).toBe("ja");
     });
 
     it("returns 'ja' for lowercase or mixed case 'JA'", () => {
-      Object.defineProperty(globalThis, "navigator", {
-        value: { language: "JA" },
-        configurable: true,
-        writable: true,
-      });
+      vi.stubGlobal("navigator", { language: "JA" });
       expect(detectSystemLanguage()).toBe("ja");
     });
 
     it("returns 'en' for English locales (e.g. en-US)", () => {
-      Object.defineProperty(globalThis, "navigator", {
-        value: { language: "en-US" },
-        configurable: true,
-        writable: true,
-      });
+      vi.stubGlobal("navigator", { language: "en-US" });
       expect(detectSystemLanguage()).toBe("en");
     });
 
     it("returns 'en' for other non-Japanese locales (e.g. fr-FR, zh-CN, de)", () => {
-      Object.defineProperty(globalThis, "navigator", {
-        value: { language: "zh-CN" },
-        configurable: true,
-        writable: true,
-      });
+      vi.stubGlobal("navigator", { language: "zh-CN" });
       expect(detectSystemLanguage()).toBe("en");
     });
   });
 
   describe("resolveLanguage", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
     it("returns 'ja' when pref is 'ja'", () => {
       expect(resolveLanguage("ja")).toBe("ja");
     });
@@ -65,18 +47,10 @@ describe("src/utils/i18n.ts", () => {
     });
 
     it("falls back to system detection when pref is 'auto'", () => {
-      Object.defineProperty(globalThis, "navigator", {
-        value: { language: "en-GB" },
-        configurable: true,
-        writable: true,
-      });
+      vi.stubGlobal("navigator", { language: "en-GB" });
       expect(resolveLanguage("auto")).toBe("en");
 
-      Object.defineProperty(globalThis, "navigator", {
-        value: { language: "ja-JP" },
-        configurable: true,
-        writable: true,
-      });
+      vi.stubGlobal("navigator", { language: "ja-JP" });
       expect(resolveLanguage("auto")).toBe("ja");
     });
   });
