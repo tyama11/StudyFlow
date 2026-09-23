@@ -1654,8 +1654,13 @@ const SUBJECT_COLORS: Record<string, string> = {
 };
 
 function getSubjectColor(subject: string | undefined): string {
-  if (!subject) return "#64748b";
+  if (!subject) {
+    return "#64748b";
+  }
   const found = subjects.find((s) => s.name === subject);
+  if (found?.color) {
+    return found.color;
+  }
   const color = SUBJECT_COLORS[subject];
   if (color) {
     return color;
