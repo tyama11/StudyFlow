@@ -1381,13 +1381,9 @@ function stopTimer(isCompleted = false): void {
   if (chip) chip.classList.remove("running");
   if (chipText) chipText.textContent = t("timerStatusIdle", {}, currentResolvedLang);
 
-  let elapsed = 0;
-  if (timerMode === "countup") {
-    elapsed = timerSeconds;
-  } else {
-    const totalPomoSec = (pomodoroSettings.workMinutes || 25) * 60;
-    elapsed = Math.max(1, totalPomoSec - timerSeconds);
-  }
+  const elapsed = timerMode === "countup"
+    ? timerSeconds
+    : Math.max(1, (pomodoroSettings.workMinutes || 25) * 60 - timerSeconds);
 
   if (elapsed > 0) {
     openRecordModal(elapsed);
