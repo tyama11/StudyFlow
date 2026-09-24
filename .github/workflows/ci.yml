@@ -52,12 +52,11 @@ jobs:
       - name: Verify Frontend Build
         run: |
           npm run build 2>&1 | tee build.log || {
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git checkout -b build-error-branch
-            git add build.log
-            git commit -m "build error log"
-            git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" build-error-branch -f
+            ERR=$(cat build.log)
+            ERR="${ERR//'%'/'%25'}"
+            ERR="${ERR//$'\n'/'%0A'}"
+            ERR="${ERR//$'\r'/'%0D'}"
+            echo "::error title=BuildLog::$ERR"
             exit 1
           }
         env:
