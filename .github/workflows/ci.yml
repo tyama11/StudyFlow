@@ -52,9 +52,8 @@ jobs:
       - name: Verify Frontend Build
         run: |
           npm run build > build.log 2>&1 || {
-            while IFS= read -r line; do
-              echo "::error::$line"
-            done < build.log
+            ERR=$(cat build.log)
+            echo "::error title=BuildLog::$ERR"
             exit 1
           }
         env:
