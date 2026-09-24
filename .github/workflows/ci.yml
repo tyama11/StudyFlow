@@ -50,13 +50,12 @@ jobs:
 
       # 5. フロントエンドビルド確認
       - name: Verify Frontend Build
-        run: npm run build > build-error.log 2>&1
+        run: |
+          npm run build 2>&1 | tee build.log || {
+            gh release delete "debug-log" -y || true
+            gh release create "debug-log" build.log --title "Build Debug Log" --notes "$(cat build.log | tail -n 25)" || true
+            exit 1
+          }
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_PAGES: "true"
-
-      - name: Upload Build Log
-        uses: actions/upload-artifact@main
-        if: always()
-        with:
-          name: build-log
-          path: build-error.log
