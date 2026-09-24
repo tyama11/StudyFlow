@@ -1,15 +1,18 @@
 version: 2
 updates:
-  # npm依存パッケージの更新（メジャー更新も含めてまとめて最新追従）
+  # npm依存パッケージの更新（互換性を保つマイナー・パッチを安全に自動追従）
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
     groups:
-      all-dependencies:
+      dependencies:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   # GitHub Actions ワークフローの更新
   - package-ecosystem: "github-actions"
