@@ -31,7 +31,13 @@ jobs:
 
       # 2. ESLint (コード品質・スタイル: 最も厳しい max-warnings=0)
       - name: Lint (ESLint)
-        run: npm run lint
+        run: |
+          npm run lint > lint.log 2>&1 || {
+            while IFS= read -r line; do
+              echo "::error::$line"
+            done < lint.log
+            exit 1
+          }
         continue-on-error: false
 
       # 3. ユニットテスト + カバレッジ
