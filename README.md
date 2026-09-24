@@ -1,14 +1,19 @@
 # 📖 StudyFlow - 学習時間記録 &amp; TODOアプリ (macOS Universal &amp; Windows対応)
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](#)
-[![Platform](https://img.shields.io/badge/platform-macOS%20(Universal)%20%7C%20Windows-blue)](#)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub Pages](https://img.shields.io/badge/Web版-GitHub%20Pagesで試す-blue?logo=github&style=for-the-badge)](https://tyama11.github.io/StudyFlow/)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge)](#)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Web-blue?style=for-the-badge)](#)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-**StudyFlow** は、日々の勉強時間をリアルタイムで計測・記録し、TODOタスクと一緒に一元管理できるデスクトップアプリケーションです。  
-**macOS（Intel Mac &amp; Apple Silicon M1〜M4 両対応の Universal Binary）** および **Windows** に対応しています。
+**StudyFlow** は、日々の勉強時間をリアルタイムで計測・記録し、TODOタスクと一緒に一元管理できる学習サポーターアプリです。  
+**Webブラウザ（GitHub Pages）** からすぐに使えるほか、**macOS（Universal Binary）** および **Windows** のデスクトップアプリにも対応しています。
+
+> 🌐 **ブラウザですぐに使う（Web版）:**  
+> 👉 **[https://tyama11.github.io/StudyFlow/](https://tyama11.github.io/StudyFlow/)**  
+> インストール不要で、PCやタブレットのブラウザから今すぐご利用いただけます。
 
 > **🔒 完全ローカル保存 &amp; オフライン対応**  
-> 勉強データはすべてお使いのPC内に安全に保存されます。外部サーバーへの個人情報送信は一切行われないため、オフライン環境でも安心してご利用いただけます。
+> 勉強データはお使いのブラウザやPC内に安全に保存されます（LocalStorage）。外部サーバーへの個人情報送信は一切行われないため、オフライン環境でも安心してご利用いただけます。
 
 ---
 
@@ -103,8 +108,8 @@
 ---
 
 ## 🌐 Web版 (GitHub Pages)
-ブラウザから直接アクセスして利用することもできます：
-👉 **https://tyama11.github.io/StudyFlow/**
+インストール不要で、ブラウザから直接アクセスして今すぐご利用いただけます：  
+👉 **[StudyFlow をブラウザで開く (https://tyama11.github.io/StudyFlow/)](https://tyama11.github.io/StudyFlow/)**
 
 ---
 
