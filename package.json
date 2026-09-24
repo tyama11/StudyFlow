@@ -14,6 +14,7 @@
     "coverage": "vitest run --coverage"
   },
   "devDependencies": {
+    "@eslint/js": "*",
     "@tauri-apps/cli": "*",
     "@vitest/coverage-v8": "*",
     "eslint": "*",
