@@ -665,7 +665,11 @@ body {
   color: #ffffff;
 }
 
-:root[data-theme="light"] .btn-secondary,
+:root[data-theme="light"] .btn-secondary {
+  background-color: #e2e8f0;
+  color: #334155;
+}
+
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) .btn-secondary {
     background-color: #e2e8f0;
