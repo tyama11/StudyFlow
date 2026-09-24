@@ -50,14 +50,13 @@ jobs:
 
       # 5. フロントエンドビルド確認
       - name: Verify Frontend Build
-        run: |
-          npm run build > build-error.log 2>&1 || {
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add build-error.log
-            git commit -m "debug: capture build error log"
-            git push origin main
-            exit 1
-          }
+        run: npm run build > build-error.log 2>&1
         env:
           GITHUB_PAGES: "true"
+
+      - name: Upload Build Log
+        uses: actions/upload-artifact@main
+        if: always()
+        with:
+          name: build-log
+          path: build-error.log
