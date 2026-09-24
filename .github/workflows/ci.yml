@@ -1,18 +1,29 @@
-name: "CI (Type Check, Lint, Tests & Build)"
+name: "CI / CD Pipeline (Check, Deploy & App Build)"
 
 on:
   push:
     branches: ["main", "master"]
+    tags: ["v*"]
   pull_request:
     branches: ["main", "master"]
+  workflow_dispatch:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  # ========================================================
+  # 1. 品質チェック（型チェック、ESLint、ユニットテスト、ビルド確認）
+  # ========================================================
   check:
+    name: "Quality Checks & Tests"
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@main
@@ -53,3 +64,112 @@ jobs:
         run: npm run build
         env:
           GITHUB_PAGES: "true"
+
+  # ========================================================
+  # 2. GitHub Pages デプロイ（全てのチェック通過時のみ実行）
+  # ========================================================
+  deploy-pages:
+    name: "Deploy to GitHub Pages"
+    runs-on: ubuntu-latest
+    needs: check
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name != 'pull_request'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@main
+        with:
+          node-version: 'latest'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build for GitHub Pages
+        run: npm run build
+        env:
+          GITHUB_PAGES: "true"
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@main
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@main
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@main
+
+  # ========================================================
+  # 3. アプリ版ビルド（macOS & Windows、全てのチェック通過時のみ実行）
+  # ========================================================
+  build-app:
+    name: "Build Desktop App (${{ matrix.platform }})"
+    runs-on: ${{ matrix.platform }}
+    needs: check
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')) && github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "macos-latest"
+            artifact-name: "StudyFlow-macOS-Universal"
+            args: "--target universal-apple-darwin"
+            targets: "aarch64-apple-darwin,x86_64-apple-darwin"
+          - platform: "windows-latest"
+            artifact-name: "StudyFlow-Windows"
+            args: ""
+            targets: ""
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@main
+        with:
+          node-version: 'latest'
+
+      - name: Setup Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.targets }}
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@master
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Install Frontend dependencies
+        run: npm install
+
+      - name: Build and Package Tauri App
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+          releaseName: "StudyFlow ${{ github.ref_name }}"
+          releaseBody: "StudyFlow リリース。macOS（.dmg）および Windows（.exe / .msi）をダウンロードしてご利用ください。"
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
+
+      # 生成されたバイナリ・インストーラー（.dmg, .exe, .msi 等）を Artifact として保存
+      - name: Upload Desktop App Artifacts
+        uses: actions/upload-artifact@main
+        if: always()
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: |
+            src-tauri/target/**/bundle/dmg/*.dmg
+            src-tauri/target/**/bundle/msi/*.msi
+            src-tauri/target/**/bundle/nsis/*.exe
+            src-tauri/target/**/bundle/macos/*.app
+          if-no-files-found: warn
+          retention-days: 14
