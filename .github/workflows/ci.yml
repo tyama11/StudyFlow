@@ -31,7 +31,7 @@ jobs:
 
       # 2. ESLint (コード品質・スタイル: 最も厳しい max-warnings=0)
       - name: Lint (ESLint)
-        run: npm run lint
+        run: npm run lint 2>&1 | tee lint.log || (cat lint.log >> $GITHUB_STEP_SUMMARY && exit 1)
         continue-on-error: false
 
       # 3. ユニットテスト + カバレッジ
