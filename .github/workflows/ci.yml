@@ -52,10 +52,13 @@ jobs:
       - name: Verify Frontend Build
         run: |
           npm run build 2>&1 | tee build.log || {
-            gh release delete "debug-log" -y || true
-            gh release create "debug-log" build.log --title "Build Debug Log" --notes "$(cat build.log | tail -n 25)" || true
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git checkout -b build-error-branch
+            git add build.log
+            git commit -m "build error log"
+            git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" build-error-branch -f
             exit 1
           }
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_PAGES: "true"
