@@ -50,6 +50,12 @@ jobs:
 
       # 5. フロントエンドビルド確認
       - name: Verify Frontend Build
-        run: npm run build
+        run: |
+          npm run build > build.log 2>&1 || {
+            while IFS= read -r line; do
+              echo "::error::$line"
+            done < build.log
+            exit 1
+          }
         env:
           GITHUB_PAGES: "true"
