@@ -148,6 +148,11 @@ jobs:
       - name: Install Frontend dependencies
         run: npm install
 
+      # Tauri & Rust 依存モジュールを強制的に最新版にアップデート（バージョン固定を排除）
+      - name: Update Rust & Tauri crates to latest
+        run: cargo update
+        working-directory: ./src-tauri
+
       - name: Build and Package Tauri App
         uses: tauri-apps/tauri-action@v1
         env:
