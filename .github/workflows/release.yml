@@ -25,12 +25,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@main
 
-      - name: Setup Node.js (v24)
-        uses: actions/setup-node@v7
+      - name: Setup Node.js (Latest)
+        uses: actions/setup-node@main
         with:
-          node-version: 24
+          node-version: 'latest'
 
       - name: Setup Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -38,7 +38,7 @@ jobs:
           targets: ${{ matrix.targets }}
 
       - name: Rust Cache
-        uses: swatinem/rust-cache@v2
+        uses: swatinem/rust-cache@master
         with:
           workspaces: "./src-tauri -> target"
 
@@ -46,7 +46,7 @@ jobs:
         run: npm install
 
       - name: Publish Release to GitHub Releases
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

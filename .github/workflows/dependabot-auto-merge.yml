@@ -16,7 +16,7 @@ jobs:
     if: github.actor == 'dependabot[bot]' || github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@main
 
       - name: Approve and Enable Auto-Merge
         run: |
