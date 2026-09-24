@@ -14,21 +14,16 @@
     "coverage": "vitest run --coverage"
   },
   "devDependencies": {
-    "@eslint/js": "*",
-    "@tauri-apps/cli": "*",
-    "@vitest/coverage-v8": "*",
-    "eslint": "*",
-    "typescript": "*",
-    "typescript-eslint": "*",
-    "vite": "*",
-    "vitest": "*"
+    "@eslint/js": "latest",
+    "@tauri-apps/cli": "latest",
+    "@vitest/coverage-v8": "latest",
+    "eslint": "latest",
+    "typescript": "latest",
+    "typescript-eslint": "latest",
+    "vite": "latest",
+    "vitest": "latest"
   },
   "dependencies": {
-    "@tauri-apps/api": "*"
-  },
-  "overrides": {
-    "typescript-eslint": {
-      "typescript": "$typescript"
-    }
+    "@tauri-apps/api": "latest"
   }
 }
