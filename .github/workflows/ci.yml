@@ -26,10 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@main
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@main
+        uses: actions/setup-node@v7
         with:
           node-version: 'latest'
 
@@ -52,7 +52,7 @@ jobs:
 
       # 4. カバレッジレポートをArtifactとして保存
       - name: Upload Coverage Report
-        uses: actions/upload-artifact@main
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage-report
@@ -78,10 +78,10 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@main
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@main
+        uses: actions/setup-node@v7
         with:
           node-version: 'latest'
 
@@ -94,16 +94,16 @@ jobs:
           GITHUB_PAGES: "true"
 
       - name: Setup GitHub Pages
-        uses: actions/configure-pages@main
+        uses: actions/configure-pages@v6
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@main
+        uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@main
+        uses: actions/deploy-pages@v5
 
   # ========================================================
   # 3. アプリ版ビルド（macOS & Windows、全てのチェック通過時のみ実行）
@@ -128,10 +128,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@main
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@main
+        uses: actions/setup-node@v7
         with:
           node-version: 'latest'
 
@@ -141,7 +141,7 @@ jobs:
           targets: ${{ matrix.targets }}
 
       - name: Rust Cache
-        uses: swatinem/rust-cache@master
+        uses: swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
 
@@ -167,7 +167,7 @@ jobs:
 
       # 生成されたバイナリ・インストーラー（.dmg, .exe, .msi 等）を Artifact として保存
       - name: Upload Desktop App Artifacts
-        uses: actions/upload-artifact@main
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ${{ matrix.artifact-name }}
