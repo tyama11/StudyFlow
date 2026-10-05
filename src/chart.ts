@@ -1,17 +1,148 @@
-// Simple dependency-free Canvas Chart for StudyFlow
+// StudyFlow Weekly Study Chart
+// Supports Chart.js (bundled locally for desktop app, loaded via CDN on GitHub Pages)
+// with automatic fallback to native canvas rendering.
 
+import Chart from "chart.js/auto";
 import type { DailyChartData } from "./types/index.js";
+
+let activeChartInstance: Chart | null = null;
 
 export function renderWeeklyChart(canvasId: string, dailyData: DailyChartData[]): void {
   const canvas = document.getElementById(canvasId);
   if (!(canvas instanceof HTMLCanvasElement)) {
     return;
   }
+
+  // テーマに応じたカラー判定
+  const currentTheme = document.documentElement.getAttribute("data-theme");
+  const isLight =
+    currentTheme === "light" ||
+    (!currentTheme && window.matchMedia("(prefers-color-scheme: light)").matches);
+
+  const gridColor = isLight ? "rgba(226, 232, 240, 0.8)" : "rgba(51, 65, 85, 0.6)";
+  const textColor = isLight ? "#64748b" : "#94a3b8";
+
+  // Chart.js が利用可能な場合はモダンでインタラクティブな Chart.js で描画
+  if (typeof Chart === "function") {
+    try {
+      if (activeChartInstance) {
+        activeChartInstance.destroy();
+        activeChartInstance = null;
+      }
+
+      const displayWidth = canvas.parentElement?.clientWidth ?? 700;
+      const displayHeight = 220;
+      canvas.style.width = `${displayWidth}px`;
+      canvas.style.height = `${displayHeight}px`;
+
+      const labels = dailyData.map((d) => d.label);
+      const minutesData = dailyData.map((d) => d.minutes);
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        return;
+      }
+      const gradient = ctx.createLinearGradient(0, 0, 0, displayHeight);
+      gradient.addColorStop(0, "#818cf8");
+      gradient.addColorStop(1, "#4f46e5");
+
+      activeChartInstance = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "学習時間 (分)",
+              data: minutesData,
+              backgroundColor: gradient,
+              borderRadius: 6,
+              borderSkipped: false,
+              maxBarThickness: 38,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: {
+            duration: 500,
+          },
+          plugins: {
+            legend: {
+              display: false,
+            },
+            tooltip: {
+              backgroundColor: isLight ? "#0f172a" : "#1e293b",
+              titleColor: "#f8fafc",
+              bodyColor: "#f8fafc",
+              padding: 10,
+              cornerRadius: 6,
+              displayColors: false,
+              callbacks: {
+                label(context): string {
+                  const m = context.parsed.y ?? 0;
+                  const hours = Math.floor(m / 60);
+                  const mins = Math.floor(m % 60);
+                  if (hours > 0 && mins > 0) return `学習時間: ${hours}時間${mins}分 (${m}分)`;
+                  if (hours > 0) return `学習時間: ${hours}時間 (${m}分)`;
+                  return `学習時間: ${mins}分`;
+                },
+              },
+            },
+          },
+          scales: {
+            x: {
+              grid: {
+                display: false,
+              },
+              ticks: {
+                color: textColor,
+                font: {
+                  size: 11,
+                },
+              },
+            },
+            y: {
+              beginAtZero: true,
+              grid: {
+                color: gridColor,
+              },
+              ticks: {
+                color: textColor,
+                font: {
+                  size: 11,
+                },
+                callback(val): string {
+                  const numVal = typeof val === "number" ? val : Number(val);
+                  const hours = (numVal / 60).toFixed(1).replace(".0", "");
+                  return `${hours}h`;
+                },
+              },
+            },
+          },
+        },
+      });
+      return;
+    } catch (e) {
+      console.warn("Chart.js rendering warning, falling back to native canvas:", e);
+    }
+  }
+
+  // --- フォールバック: ネイティブ Canvas 描画 ---
+  renderNativeCanvasChart(canvas, dailyData, isLight, gridColor, textColor);
+}
+
+function renderNativeCanvasChart(
+  canvas: HTMLCanvasElement,
+  dailyData: DailyChartData[],
+  isLight: boolean,
+  gridColor: string,
+  textColor: string
+): void {
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     return;
   }
-
   const dpr = window.devicePixelRatio || 1;
 
   const displayWidth = canvas.parentElement?.clientWidth ?? 700;
@@ -24,16 +155,7 @@ export function renderWeeklyChart(canvasId: string, dailyData: DailyChartData[])
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, displayWidth, displayHeight);
 
-  // Check current theme
-  const currentTheme = document.documentElement.getAttribute("data-theme");
-  const isLight =
-    currentTheme === "light" ||
-    (!currentTheme && window.matchMedia("(prefers-color-scheme: light)").matches);
-
-  const gridColor = isLight ? "#e2e8f0" : "#334155";
-  const textColor = isLight ? "#64748b" : "#94a3b8";
   const valueColor = isLight ? "#0f172a" : "#f8fafc";
-
   const padding = { top: 30, right: 30, bottom: 40, left: 50 };
   const graphWidth = displayWidth - padding.left - padding.right;
   const graphHeight = displayHeight - padding.top - padding.bottom;
@@ -41,7 +163,7 @@ export function renderWeeklyChart(canvasId: string, dailyData: DailyChartData[])
   const maxMinutes = Math.max(60, ...dailyData.map((d) => d.minutes));
   const ceilMax = Math.ceil(maxMinutes / 60) * 60;
 
-  // Draw Grid lines & Y-axis labels
+  // Grid lines & Y-axis labels
   ctx.strokeStyle = gridColor;
   ctx.fillStyle = textColor;
   ctx.font = "11px sans-serif";
@@ -63,7 +185,7 @@ export function renderWeeklyChart(canvasId: string, dailyData: DailyChartData[])
     ctx.fillText(`${hours}h`, padding.left - 8, yPos);
   }
 
-  // Draw Bars
+  // Bars
   const barCount = dailyData.length;
   if (barCount === 0) {
     return;

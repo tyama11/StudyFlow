@@ -1,5 +1,33 @@
 import { renderWeeklyChart } from "./chart.js";
 import kaeruPianoAudioSrc from "./assets/audio/kaeru_piano.mp3";
+import confetti from "canvas-confetti";
+
+// -------------------------------------------------------
+// Confetti Celebration Helper
+// -------------------------------------------------------
+
+const celebratedGoalDates = new Set<string>();
+
+function triggerConfetti(options: confetti.Options = {}): void {
+  try {
+    const confettiFn =
+      typeof confetti === "function"
+        ? confetti
+        : typeof window !== "undefined" && typeof window.confetti === "function"
+        ? window.confetti
+        : null;
+    if (confettiFn) {
+      void confettiFn({
+        particleCount: 70,
+        spread: 60,
+        origin: { y: 0.6 },
+        ...options,
+      });
+    }
+  } catch (e) {
+    console.warn("Confetti unavailable:", e);
+  }
+}
 import {
   STORAGE_KEYS,
   DEFAULT_SUBJECTS,
@@ -1125,6 +1153,12 @@ function updateHeaderAndSummary(): void {
     goalBadgeEl.textContent = t("todayGoalAchieved", {}, l);
     (goalBadgeEl as HTMLElement).style.display = isAchieved ? "inline-block" : "none";
   }
+
+  // 目標達成お祝い演出
+  if (isAchieved && !celebratedGoalDates.has(todayStr)) {
+    celebratedGoalDates.add(todayStr);
+    triggerConfetti({ particleCount: 90, spread: 80, origin: { y: 0.5 } });
+  }
 }
 
 // -------------------------------------------------------
@@ -1356,6 +1390,7 @@ function triggerPomodoroCompleted(): void {
   if (modal) {
     (modal as HTMLElement).style.display = "flex";
   }
+  triggerConfetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
 }
 
 function stopTimer(isCompleted = false): void {

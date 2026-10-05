@@ -116,10 +116,33 @@
 ## 🛠️ 主な技術スタック
 - **言語**: TypeScript (strict mode)
 - **UI / ビルド**: HTML5, CSS3, Vite
+- **UIライブラリ**: [Chart.js](https://www.chartjs.org/) (学習統計グラフ), [canvas-confetti](https://github.com/catdad/canvas-confetti) (目標達成演出)
 - **基盤 (デスクトップ版)**: [Tauri v2](https://v2.tauri.app/) (Rust)
 - **ターゲット**: Web (GitHub Pages), macOS Universal (`universal-apple-darwin`), Windows (`x86_64-pc-windows-msvc`)
 - **テスト・品質管理**: Vitest, @vitest/coverage-v8 (カバレッジ80%以上), ESLint
 - **CI/CD**: GitHub Actions (型チェック, Lint, ユニットテスト+カバレッジ, ビルド, GitHub Pages自動デプロイ)
+
+### 📦 ライブラリ配信のハイブリッド設計
+| ターゲット環境 | 配信方式 | 特徴・メリット |
+| :--- | :--- | :--- |
+| **デスクトップアプリ (Tauri)** | **ローカル付属（バンドル同梱）** | ネットワーク接続不要（完全オフライン対応）。外部サーバー停止の影響を受けず安心。 |
+| **Webアプリ (GitHub Pages)** | **CDN動的ロード (jsDelivr)** | バンドルサイズ極小化、初回表示の高速化、ブラウザキャッシュの活用。 |
+
+### 💻 開発 &amp; ビルドコマンド
+```bash
+# 開発サーバー起動
+npm run dev
+
+# デスクトップ用ビルド (ライブラリを dist に付属・同梱)
+npm run build
+# または
+npm run build:desktop
+
+# GitHub Pages用ビルド (ライブラリを CDN から取得するように最適化)
+GITHUB_PAGES=true npm run build
+# または
+npm run build:pages
+```
 
 ---
 
