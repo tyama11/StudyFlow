@@ -10,6 +10,10 @@ updates:
       all-dependencies:
         patterns:
           - "*"
+    ignore:
+      # typescript-eslint が <6.1.0 を要求するため、TypeScript 6.1.0 以上を無視
+      - dependency-name: "typescript"
+        versions: [">= 6.1.0"]
 
   # GitHub Actions ワークフローの更新
   - package-ecosystem: "github-actions"
