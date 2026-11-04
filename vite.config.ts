@@ -45,17 +45,22 @@ function cdnResolverPlugin(isPages: boolean): Plugin {
     transformIndexHtml(html: string) {
       if (!isPages) {
         // デスクトップ環境: CDNスクリプトタグは注入せず、すべてローカルにバンドル（付属）
-        return html.replace("<!-- CDN_SCRIPTS -->", "");
+        return html.replace("<!-- CDN_SCRIPTS -->", "").replace("<!-- GUIDE_LINK -->", "");
       }
       // GitHub Pages 環境: CDNからライブラリを取得するスクリプトタグを注入
       const uniqueUrls = Array.from(new Set(Object.values(CDN_LIBRARIES).map((l) => l.url)));
       const tags = uniqueUrls
         .map((url) => `    <script src="${url}"></script>`)
         .join("\n");
-      return html.replace(
-        "<!-- CDN_SCRIPTS -->",
-        `<!-- CDN Libraries (Loaded on GitHub Pages for performance & caching) -->\n${tags}`
-      );
+      return html
+        .replace(
+          "<!-- CDN_SCRIPTS -->",
+          `<!-- CDN Libraries (Loaded on GitHub Pages for performance & caching) -->\n${tags}`
+        )
+        .replace(
+          "<!-- GUIDE_LINK -->",
+          `<a href="./guide/" class="theme-toggle-btn" style="margin-bottom: 0.5rem; text-decoration: none;"><span>📖</span><span>使い方ガイド / Guide</span></a>`
+        );
     },
   };
 }
@@ -75,5 +80,9 @@ export default defineConfig(() => {
       __IS_PAGES__: JSON.stringify(isPages),
     },
     plugins: [cdnResolverPlugin(isPages)],
+    // 解説ページは検索流入向けのため GitHub Pages ビルドにのみ含める
+    build: isPages
+      ? { rolldownOptions: { input: { main: "index.html", guide: "guide/index.html" } } }
+      : {},
   };
 });
