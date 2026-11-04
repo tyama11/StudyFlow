@@ -2488,10 +2488,9 @@ body {
     min-width: 0;
   }
 
-  /* 目標基準カードのラジオボタンを既存の横並びのまま表示する */
-  .goal-type-card {
-    flex-wrap: nowrap;
-    align-items: center;
+  /* .form-group label の display: block に負けないようにし、ラジオボタンを横並びにする */
+  .form-group label.goal-type-card {
+    display: flex;
   }
 
   .goal-radio {
