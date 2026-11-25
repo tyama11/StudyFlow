@@ -59,7 +59,13 @@ export function escapeHtml(str: unknown): string {
   if (str === null || str === undefined) {
     return "";
   }
-  return String(str)
+  const text =
+    typeof str === "string"
+      ? str
+      : typeof str === "number" || typeof str === "boolean"
+        ? String(str)
+        : JSON.stringify(str);
+  return text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")

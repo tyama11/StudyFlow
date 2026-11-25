@@ -1393,8 +1393,7 @@ function triggerPomodoroCompleted(): void {
   triggerConfetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
 }
 
-function stopTimer(isCompleted = false): void {
-  void isCompleted;
+function stopTimer(_isCompleted = false): void {
   if (!timerRunning && timerSeconds === 0 && !isAlarmRinging) return;
   if (timerInterval) {
     clearInterval(timerInterval);
