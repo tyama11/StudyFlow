@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "type-check": "tsrs --noEmit --fast",
-    "lint": "TSRS_FAST=1 oxlint --type-aware --deny-warnings src tests",
+    "lint": "TSRS_FAST=1 oxlint --type-aware --type-check --deny-warnings src tests",
     "test": "vitest run",
     "coverage": "vitest run --coverage"
   },
