@@ -2500,3 +2500,277 @@ body {
 
 
 
+
+/* =========================================================================
+   Material 3 Expressive（ライト／ダーク トーナルパレット・特大角丸・ピルボタン・スプリング）
+   ========================================================================= */
+:root,
+:root[data-theme="light"] {
+  --m3-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --bg-main: #fdf7ff;
+  --bg-card: #f7f2fa;
+  --bg-card-hover: #f2ecf6;
+  --bg-sidebar: #f2ecf6;
+  --border-color: #cac4d0;
+  --border-focus: #583de8;
+  --text-main: #1d1b20;
+  --text-muted: #49454f;
+  --text-dim: #79747e;
+  --primary: #583de8;
+  --primary-hover: #4628d4;
+  --primary-glow: rgba(88, 61, 232, 0.2);
+  --primary-container: #e4dfff;
+  --on-primary-container: #170065;
+  --success: #006a60;
+  --success-bg: #9ef2e4;
+  --danger: #ba1a1a;
+  --danger-hover: #93000a;
+  --radius: 24px;
+  --radius-sm: 16px;
+  --radius-pill: 9999px;
+  --timer-circle-bg: radial-gradient(circle, #ffffff 60%, #f2ecf6 100%);
+  --timer-circle-shadow: 0 2px 8px rgba(29, 27, 32, 0.1);
+  --banner-bg: linear-gradient(135deg, #e4dfff, #ffd8e4);
+  --banner-border: #cac4d0;
+  --table-header-bg: #ece6f0;
+  --banner-text-val: #170065;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-main: #141218;
+    --bg-card: #1d1b20;
+    --bg-card-hover: #2b2930;
+    --bg-sidebar: #211f26;
+    --border-color: #49454f;
+    --text-main: #e6e0e9;
+    --text-muted: #cac4d0;
+    --text-dim: #938f99;
+    --primary: #c7bfff;
+    --primary-hover: #e4dfff;
+    --primary-glow: rgba(199, 191, 255, 0.25);
+    --primary-container: #4121d0;
+    --on-primary-container: #e4dfff;
+    --success: #82d5c8;
+    --success-bg: #005048;
+    --timer-circle-bg: radial-gradient(circle, #2b2930 60%, #211f26 100%);
+    --banner-bg: linear-gradient(135deg, #4121d0, #633b48);
+    --banner-border: #49454f;
+    --table-header-bg: #2b2930;
+    --banner-text-val: #ffffff;
+  }
+}
+
+:root[data-theme="dark"] {
+  --m3-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --bg-main: #141218;
+  --bg-card: #1d1b20;
+  --bg-card-hover: #2b2930;
+  --bg-sidebar: #211f26;
+  --border-color: #49454f;
+  --border-focus: #c7bfff;
+  --text-main: #e6e0e9;
+  --text-muted: #cac4d0;
+  --text-dim: #938f99;
+  --primary: #c7bfff;
+  --primary-hover: #e4dfff;
+  --primary-glow: rgba(199, 191, 255, 0.25);
+  --primary-container: #4121d0;
+  --on-primary-container: #e4dfff;
+  --success: #82d5c8;
+  --success-bg: #005048;
+  --danger: #ffb4ab;
+  --danger-hover: #ff897d;
+  --radius: 24px;
+  --radius-sm: 16px;
+  --radius-pill: 9999px;
+  --timer-circle-bg: radial-gradient(circle, #2b2930 60%, #211f26 100%);
+  --timer-circle-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --banner-bg: linear-gradient(135deg, #4121d0, #633b48);
+  --banner-border: #49454f;
+  --table-header-bg: #2b2930;
+  --banner-text-val: #ffffff;
+}
+
+/* ナビゲーション：ピル型アクティブインジケーター */
+.sidebar {
+  border-right: none;
+}
+
+.nav-item {
+  border-radius: var(--radius-pill);
+  transition: all 0.35s var(--m3-spring);
+}
+
+.nav-item:hover {
+  background-color: var(--bg-card-hover);
+  transform: translateX(3px);
+}
+
+.nav-item.active {
+  background-color: var(--primary-container);
+  color: var(--on-primary-container);
+  box-shadow: none;
+  font-weight: 700;
+}
+
+.logo-icon {
+  border-radius: 16px;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  box-shadow: none;
+}
+
+.theme-toggle-btn {
+  border-radius: var(--radius-pill);
+}
+
+/* カード／バナー：特大角丸のトーナルサーフェス */
+.card {
+  border: none;
+  border-radius: var(--radius);
+  background-color: var(--bg-card);
+  box-shadow: 0 1px 3px rgba(29, 27, 32, 0.12);
+}
+
+.total-highlight-card {
+  background-color: var(--primary-container);
+  box-shadow: none;
+}
+
+.today-summary-banner {
+  border: none;
+  border-radius: 28px;
+  box-shadow: none;
+}
+
+.progress-bar-bg,
+.subject-bar-wrap {
+  height: 12px;
+  border-radius: var(--radius-pill);
+}
+
+.progress-bar-fill {
+  background: var(--primary);
+}
+
+/* ボタン：フルピル＋スプリング */
+.btn {
+  border-radius: var(--radius-pill);
+  transition: all 0.35s var(--m3-spring);
+}
+
+.btn:hover {
+  transform: translateY(-2px) scale(1.04);
+}
+
+.btn:active {
+  transform: scale(0.94);
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  color: var(--bg-main);
+}
+
+.btn-secondary,
+:root[data-theme="light"] .btn-secondary {
+  background-color: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+.timer-mode-toggle {
+  border-radius: var(--radius-pill);
+  padding: 4px;
+  background-color: var(--bg-card-hover);
+}
+
+.mode-btn {
+  border-radius: var(--radius-pill);
+  padding: 0.4rem 0.9rem;
+  transition: all 0.3s var(--m3-spring);
+}
+
+.mode-btn.active {
+  background-color: var(--primary-container);
+  color: var(--on-primary-container);
+  box-shadow: none;
+}
+
+.timer-circle {
+  border-width: 6px;
+}
+
+.timer-circle.active {
+  border-color: var(--primary);
+}
+
+/* チップ／入力／リスト */
+.status-chip,
+.subject-total-badge,
+.subject-chip-item,
+.pomo-preset-btn,
+.todo-subject-badge,
+.session-badge {
+  border-radius: var(--radius-pill);
+}
+
+.pomo-preset-btn {
+  transition: all 0.3s var(--m3-spring);
+}
+
+.pomo-preset-btn.active {
+  background-color: var(--primary-container);
+  border-color: var(--primary-container);
+  color: var(--on-primary-container);
+  box-shadow: none;
+}
+
+.select-input,
+.text-input,
+.date-input,
+.textarea-input {
+  border-radius: 14px;
+  border-width: 1.5px;
+}
+
+.todo-item,
+.session-item-compact,
+.backup-item,
+.goal-type-card {
+  border-radius: var(--radius-sm);
+}
+
+.modal-card {
+  border: none;
+  border-radius: 28px;
+  background-color: var(--bg-card-hover);
+  animation: popInModal 0.4s var(--m3-spring);
+}
+
+@media (max-width: 768px) {
+  .nav-menu {
+    border-top: none;
+    background-color: var(--bg-sidebar);
+  }
+
+  .nav-item {
+    border-radius: var(--radius-pill);
+    margin: 4px;
+  }
+
+  .nav-item.active {
+    background-color: var(--primary-container);
+    color: var(--on-primary-container);
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-item,
+  .btn,
+  .mode-btn,
+  .pomo-preset-btn {
+    transition-duration: 0.01ms !important;
+  }
+}

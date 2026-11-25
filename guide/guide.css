@@ -396,3 +396,84 @@ main {
   margin: 0;
   font-size: 0.85rem;
 }
+
+/* =========================================================================
+   Material 3 Expressive
+   ========================================================================= */
+:root {
+  --bg-color: #fdf7ff;
+  --card-bg: #f7f2fa;
+  --border-color: #cac4d0;
+  --text-color: #1d1b20;
+  --muted-color: #49454f;
+  --primary-color: #583de8;
+  --primary-hover: #4628d4;
+  --primary-text: #ffffff;
+  --secondary-bg: #e4dfff;
+  --secondary-hover: #d6d0ff;
+  --secondary-text: #170065;
+  --table-stripe: rgba(88, 61, 232, 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-color: #141218;
+    --card-bg: #1d1b20;
+    --border-color: #49454f;
+    --text-color: #e6e0e9;
+    --muted-color: #cac4d0;
+    --primary-color: #c7bfff;
+    --primary-hover: #e4dfff;
+    --primary-text: #2a009f;
+    --secondary-bg: #4121d0;
+    --secondary-hover: #5a3de8;
+    --secondary-text: #e4dfff;
+    --table-stripe: rgba(255, 255, 255, 0.03);
+  }
+}
+
+.btn {
+  border-radius: 9999px;
+  padding: 0.85rem 1.75rem;
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.btn:hover {
+  transform: translateY(-2px) scale(1.04);
+}
+
+.btn:active {
+  transform: scale(0.95);
+}
+
+.target-list li,
+.feature-card,
+.table-container,
+.faq-item {
+  border: none;
+  border-radius: 24px;
+}
+
+.faq-item {
+  padding: 1rem 1.4rem;
+}
+
+.target-list li {
+  padding: 1rem 1.4rem;
+}
+
+.feature-card {
+  border-radius: 28px;
+  padding: 1.5rem;
+}
+
+.comparison-table th {
+  background-color: var(--secondary-bg);
+  color: var(--secondary-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition-duration: 0.01ms !important;
+  }
+}
