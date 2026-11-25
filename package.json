@@ -5,12 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "build:desktop": "tsc --noEmit && vite build",
-    "build:pages": "tsc --noEmit && vite build",
+    "build": "tsrs --noEmit --fast && vite build",
+    "build:desktop": "tsrs --noEmit --fast && vite build",
+    "build:pages": "tsrs --noEmit --fast && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "type-check": "tsc --noEmit",
+    "type-check": "tsrs --noEmit --fast",
     "lint": "eslint src tests --max-warnings 0",
     "test": "vitest run",
     "coverage": "vitest run --coverage"
@@ -24,7 +24,8 @@
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.71.1",
     "vite": "^8.3.2",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.3",
+    "tsrs": "7.1.0-beta.tsrs5"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
