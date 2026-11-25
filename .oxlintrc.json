@@ -1,0 +1,45 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "oxc"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "typescript/no-explicit-any": "error",
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "typescript/explicit-function-return-type": [
+      "error",
+      {
+        "allowExpressions": true,
+        "allowTypedFunctionExpressions": true
+      }
+    ],
+    "typescript/consistent-type-definitions": ["error", "interface"],
+    "typescript/array-type": ["error", { "default": "array-simple" }],
+    "no-console": ["error", { "allow": ["warn", "error"] }],
+    "eqeqeq": ["error", "always"],
+    "prefer-const": "error",
+    "no-var": "error",
+    "no-duplicate-imports": "error"
+  },
+  "overrides": [
+    {
+      "files": ["tests/**/*.ts"],
+      "rules": {
+        "no-console": "off",
+        "typescript/explicit-function-return-type": "off",
+        "typescript/no-non-null-assertion": "off",
+        "typescript/no-dynamic-delete": "off"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "dist/**",
+    "node_modules/**",
+    "src-tauri/**",
+    "public/**",
+    "coverage/**",
+    "*.config.ts",
+    "*.config.js"
+  ]
+}
