@@ -4,15 +4,15 @@
   "version": "2.0.0",
   "identifier": "com.studyflow.tracker",
   "build": {
-    "beforeDevCommand": "npm run build",
-    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "pnpm run build",
+    "beforeBuildCommand": "pnpm run build",
     "frontendDist": "../dist"
   },
   "app": {
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "StudyFlow - 学習時間記録 & TODOアプリ",
+        "title": "StudyFlow - \u5b66\u7fd2\u6642\u9593\u8a18\u9332 & TODO\u30a2\u30d7\u30ea",
         "width": 1100,
         "height": 780,
         "minWidth": 850,
